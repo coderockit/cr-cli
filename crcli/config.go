@@ -2,11 +2,15 @@ package crcli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/coderockit/viper"
 	"github.com/juju/loggo"
 )
+
+var codeRockItWorkDirName = ".coderockit"
 
 func LoadConfiguration(configDir string) {
 	viper.SetConfigType("json")
@@ -28,8 +32,22 @@ func LoadConfiguration(configDir string) {
 	if configDir != "" {
 		logger.Debugf("CodeRockIt --config directory: %q\n", configDir)
 	}
-	filename, err := viper.GetConfigFile()
+	filename, err := GetConfigFilename()
 	logger.Debugf("Using config file: %s\n", filename)
+
+	// Create the .coderockit directory in the current directory if it does not exist
+	dotcr := GetWorkDirectory()
+	if err := os.MkdirAll(dotcr, os.ModePerm); err != nil {
+		logger.Debugf("Cannot create the .coderockit directory.")
+	}
+}
+
+func GetWorkDirectory() string {
+	return filepath.Join(".", codeRockItWorkDirName)
+}
+
+func GetConfigFilename() (string, error) {
+	return viper.GetConfigFile()
 }
 
 // GetInt(key string) : int
