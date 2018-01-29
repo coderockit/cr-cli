@@ -1,6 +1,8 @@
 package crcli
 
 import (
+	"crypto/tls"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -19,6 +21,7 @@ type Pin struct {
 	Version   string
 	Hash      string
 	Verified  bool
+	ErrorMsg  string
 }
 
 // The CodeRockIt pinmap type -- map file paths to their contained pins
@@ -53,6 +56,7 @@ func NewPin(verb string, pinStr string) Pin {
 		PinVerb: verb, Host: host, Port: port,
 		GroupName: groupName, Name: name,
 		Version: version, Hash: hash, Verified: false,
+		ErrorMsg: "No attempt to verify yet",
 	}
 	//logger.Debugf("returning newPin: %s", newPin)
 	return newPin
@@ -86,17 +90,32 @@ func getVerifyURL(pin Pin) string {
 	return getResourceURL(pin) + pin.GroupName + "/" + pin.Name + "/" + pin.Version + "/" + pin.Hash
 }
 
-func verifyPin(pin Pin) {
+func verifyPin(pin Pin) Pin {
 	logger := loggo.GetLogger("coderockit.cli.crcli")
 
+	//resty.SetProxy("http://127.0.0.1:8080")
+	//resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+
+	verifyURL := getVerifyURL(pin)
+	logger.Debugf("verifying pin with URL: %s", verifyURL)
 	resp, err := resty.R().
 		SetHeader("Accept", "application/json").
 		SetAuthToken(ConfString("apiAccessToken", "")).
-		Get(getVerifyURL(pin))
+		Get(verifyURL)
 
 	if err == nil {
-		logger.Debugf("resonse body: %s", resp.Body())
+		if resp.StatusCode() == 200 {
+			pin.Verified = true
+			pin.ErrorMsg = ""
+		} else {
+			//logger.Debugf("resonse body: %s", resp.Body())
+			pin.Verified = false
+			respBody := string(resp.Body())
+			pin.ErrorMsg = fmt.Sprintf("Fatal: verification failed with error: %s", respBody)
+		}
 	} else {
 		logger.Criticalf("Error: %s", err)
 	}
+
+	return pin
 }

@@ -59,7 +59,7 @@ func ProcessPath(addPath string, pinCache Pinmap) Pinmap {
 				//logger.Debugf("!!!newPins is: %s", newPins)
 				if newPins != nil && len(newPins) > 0 {
 					pinCache[addPath] = append(pinCache[addPath], newPins...)
-					logger.Debugf("Found crpins in: %s", addPath)
+					//logger.Debugf("Found crpins in: %s", addPath)
 				}
 			}
 		} else {
@@ -118,7 +118,7 @@ func GetPins(filepath string) []Pin {
 				//logger.Debugf("ENDGET matches is %d for string: %s", len(matches), scanStr)
 				if foundPinStr != "" {
 					newPin := NewPin("GET", foundPinStr)
-					verifyPin(newPin)
+					newPin = verifyPin(newPin)
 					//logger.Debugf("Got pins: %s", pins)
 					pins = append(pins, newPin)
 					//logger.Debugf("Got pins: %s", pins)
@@ -131,7 +131,7 @@ func GetPins(filepath string) []Pin {
 				//logger.Debugf("ENDPUT matches is %d for string: %s", len(matches), scanStr)
 				if foundPinStr != "" {
 					newPin := NewPin("PUT", foundPinStr)
-					verifyPin(newPin)
+					newPin = verifyPin(newPin)
 					//logger.Debugf("Got pins: %s", pins)
 					pins = append(pins, newPin)
 					//logger.Debugf("Got pins: %s", pins)
