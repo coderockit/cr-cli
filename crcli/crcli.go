@@ -1,7 +1,6 @@
 package crcli
 
 import (
-	"crypto/tls"
 	"fmt"
 	"strconv"
 	"strings"
@@ -83,7 +82,7 @@ func getResourceURL(pin Pin) string {
 	if pin.Port == 80 || pin.Port == 443 {
 		port = ""
 	}
-	return ConfString("protocol", "https") + "://" + pin.Host + port + "/" + ConfString("pinResource", "pin") + "/"
+	return ConfString("apiProtocol", "https") + "://" + pin.Host + port + "/" + ConfString("apiPinResource", "api/v1/pin") + "/"
 }
 
 func getVerifyURL(pin Pin) string {
@@ -114,6 +113,8 @@ func verifyPin(pin Pin) Pin {
 			pin.ErrorMsg = fmt.Sprintf("Fatal: verification failed with error: %s", respBody)
 		}
 	} else {
+		pin.Verified = false
+		pin.ErrorMsg = fmt.Sprintf("%s", err)
 		logger.Criticalf("Error: %s", err)
 	}
 
