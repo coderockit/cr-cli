@@ -3,6 +3,7 @@ package crcli
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"time"
 
@@ -10,7 +11,9 @@ import (
 	"github.com/juju/loggo"
 )
 
-var codeRockItWorkDirName = ".coderockit"
+const codeRockItWorkDirName = ".coderockit"
+
+var apiAccessToken = ""
 
 func LoadConfiguration(configDir string) {
 	viper.SetConfigType("json")
@@ -38,8 +41,51 @@ func LoadConfiguration(configDir string) {
 	// Create the .coderockit directory in the current directory if it does not exist
 	dotcr := GetWorkDirectory()
 	if err := os.MkdirAll(dotcr, os.ModePerm); err != nil {
-		logger.Debugf("Cannot create the .coderockit directory.")
+		logger.Debugf("Cannot create the %s directory.", dotcr)
 	}
+
+	// Create the $HOME/.coderockit directory if it does not exist
+	homeDotcr := GetHomeWorkDirectory()
+	if homeDotcr != "" {
+		if err := os.MkdirAll(homeDotcr, os.ModePerm); err != nil {
+			logger.Debugf("Cannot create the %s directory.", homeDotcr)
+		}
+	}
+}
+
+func GetHomeWorkDirectory() string {
+	logger := loggo.GetLogger("coderockit.cli.config")
+
+	user, err := user.Current()
+	if err == nil {
+		logger.Debugf("Home Dir: %s", user.HomeDir)
+		return filepath.Join(user.HomeDir+"/.", codeRockItWorkDirName)
+	} else {
+		logger.Criticalf("Error: %s", err)
+	}
+	return ""
+}
+
+func GetApiAccessToken() string {
+	logger := loggo.GetLogger("coderockit.cli.config")
+	if apiAccessToken == "" {
+		homeConfig := viper.New()
+		homeConfig.SetConfigType("json")
+		homeConfig.SetConfigName("config")             // name of config file (without extension)
+		homeConfig.AddConfigPath("$HOME/.coderockit/") // call multiple times to add many search paths
+		homeConfig.AddConfigPath("/etc/coderockit/")   // path to look for the config file in
+		err := homeConfig.ReadInConfig()
+		if err != nil {
+			logger.Debugf("Fatal error reading config.json config file: %s \n", err)
+		}
+
+		if homeConfig.IsSet("apiAccessToken") {
+			apiAccessToken = homeConfig.GetString("apiAccessToken")
+		} else {
+			apiAccessToken = ""
+		}
+	}
+	return apiAccessToken
 }
 
 func GetWorkDirectory() string {

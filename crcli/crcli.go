@@ -99,7 +99,7 @@ func verifyPin(pin Pin) Pin {
 	logger.Debugf("verifying pin with URL: %s", verifyURL)
 	resp, err := resty.R().
 		SetHeader("Accept", "application/json").
-		SetAuthToken(ConfString("apiAccessToken", "")).
+		SetAuthToken(GetApiAccessToken()).
 		Get(verifyURL)
 
 	if err == nil {
