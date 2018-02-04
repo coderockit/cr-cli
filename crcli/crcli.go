@@ -1,6 +1,7 @@
 package crcli
 
 import (
+	"crypto/tls"
 	"fmt"
 	"strconv"
 	"strings"
@@ -109,7 +110,7 @@ func verifyPin(pin Pin) Pin {
 	logger := loggo.GetLogger("coderockit.cli.crcli")
 
 	//resty.SetProxy("http://127.0.0.1:8080")
-	//resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 
 	verifyURL := getVerifyURL(pin)
 	logger.Debugf("verifying pin with URL: %s", verifyURL)
