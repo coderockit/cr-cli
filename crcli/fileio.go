@@ -59,7 +59,7 @@ func ProcessPath(addPath string, pinCache Pinmap) Pinmap {
 				//logger.Debugf("!!!newPins is: %s", newPins)
 				if newPins != nil && len(newPins) > 0 {
 					pinCache[addPath] = append(pinCache[addPath], newPins...)
-					//logger.Debugf("Found crpins in: %s", addPath)
+					//logger.Debugf("Found pins in: %s", addPath)
 				}
 			}
 		} else {
@@ -80,12 +80,13 @@ func GetPins(filepath string) []Pin {
 	if err == nil {
 		pinScanner := bufio.NewScanner(file)
 
-		var crgetRE = regexp.MustCompile(`GET crpin\:`)
-		var crputRE = regexp.MustCompile(`PUT crpin\:`)
-		var crgetEndRE = regexp.MustCompile(`ENDGET crpin`)
-		var crputEndRE = regexp.MustCompile(`ENDPUT crpin`)
+		var crgetRE = regexp.MustCompile(`GET pin\:`)
+		var crputRE = regexp.MustCompile(`PUT pin\:`)
+		var crEndRE = regexp.MustCompile(`ENDPIN`)
+		//var crputEndRE = regexp.MustCompile(`ENDPIN`)
 
 		var foundPinStr string = ""
+		var httpVerb string = ""
 		for pinScanner.Scan() {
 			scanStr := pinScanner.Text()
 
@@ -94,8 +95,9 @@ func GetPins(filepath string) []Pin {
 				//pins = append(pins, *NewPin(pinStr))
 				if foundPinStr == "" {
 					foundPinStr = scanStr
+					httpVerb = "GET"
 				} else {
-					logger.Debugf("Last crpin failed, your ENDGET is probably incorrect: %s", foundPinStr)
+					logger.Debugf("Last pin failed, your ENDGET is probably incorrect: %s", foundPinStr)
 					break
 				}
 				//logger.Debugf("GET matches is %d for string: %s", len(matches), foundPinStr)
@@ -106,18 +108,19 @@ func GetPins(filepath string) []Pin {
 				//pins = append(pins, *NewPin(pinStr))
 				if foundPinStr == "" {
 					foundPinStr = scanStr
+					httpVerb = "PUT"
 				} else {
-					logger.Debugf("Last crpin failed, your ENDPUT is probably incorrect: %s", foundPinStr)
+					logger.Debugf("Last pin failed, your ENDPUT is probably incorrect: %s", foundPinStr)
 					break
 				}
 				//logger.Debugf("PUT matches is %d for string: %s", len(matches), foundPinStr)
 			}
 
-			matches = crgetEndRE.FindStringSubmatch(scanStr)
+			matches = crEndRE.FindStringSubmatch(scanStr)
 			if len(matches) >= 1 {
 				//logger.Debugf("ENDGET matches is %d for string: %s", len(matches), scanStr)
 				if foundPinStr != "" {
-					newPin := NewPin("GET", foundPinStr)
+					newPin := NewPin(httpVerb, foundPinStr)
 					newPin = verifyPin(newPin)
 					//logger.Debugf("Got pins: %s", pins)
 					pins = append(pins, newPin)
@@ -126,22 +129,22 @@ func GetPins(filepath string) []Pin {
 				}
 			}
 
-			matches = crputEndRE.FindStringSubmatch(scanStr)
-			if len(matches) >= 1 {
-				//logger.Debugf("ENDPUT matches is %d for string: %s", len(matches), scanStr)
-				if foundPinStr != "" {
-					newPin := NewPin("PUT", foundPinStr)
-					newPin = verifyPin(newPin)
-					//logger.Debugf("Got pins: %s", pins)
-					pins = append(pins, newPin)
-					//logger.Debugf("Got pins: %s", pins)
-					foundPinStr = ""
-				}
-			}
+			//			matches = crEndRE.FindStringSubmatch(scanStr)
+			//			if len(matches) >= 1 {
+			//				//logger.Debugf("ENDPUT matches is %d for string: %s", len(matches), scanStr)
+			//				if foundPinStr != "" {
+			//					newPin := NewPin("PUT", foundPinStr)
+			//					newPin = verifyPin(newPin)
+			//					//logger.Debugf("Got pins: %s", pins)
+			//					pins = append(pins, newPin)
+			//					//logger.Debugf("Got pins: %s", pins)
+			//					foundPinStr = ""
+			//				}
+			//			}
 		}
 
 		if foundPinStr != "" {
-			logger.Debugf("Last crpin failed, your last ENDPUT or ENDGET is probably incorrect: %s", foundPinStr)
+			logger.Debugf("Last pin failed, your last ENDPUT or ENDGET is probably incorrect: %s", foundPinStr)
 		}
 
 	} else {

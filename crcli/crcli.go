@@ -12,7 +12,7 @@ import (
 // The CodeRockIt pin type
 type Pin struct {
 	PinVerb string
-	// The crpin url is of the form -- crpin://[host]:[port]/[cr-group-name]/[cr-name]/[cr-version]/[cr-hash-verifier]
+	// The pin url is of the form -- pin://[host]:[port]/[cr-group-name]/[cr-name]/[cr-version]/[cr-hash-verifier]
 	Host      string
 	Port      int
 	GroupName string
@@ -28,7 +28,7 @@ type Pinmap map[string][]Pin
 
 func NewPin(verb string, pinStr string) Pin {
 	logger := loggo.GetLogger("coderockit.cli.crcli")
-	//logger.Debugf("Creating new pin: %s", pinStr)
+	//logger.Debugf("%s :: Creating new pin: %s", verb, pinStr)
 
 	parts := parsePin(verb, pinStr)
 	//logger.Debugf("parts is: %s", parts)
@@ -48,8 +48,14 @@ func NewPin(verb string, pinStr string) Pin {
 	}
 	groupName := parts[1]
 	name := parts[2]
-	version := parts[3]
-	hash := parts[4]
+	version := ""
+	if len(parts) >= 4 {
+		version = parts[3]
+	}
+	hash := ""
+	if len(parts) >= 5 {
+		hash = parts[4]
+	}
 
 	newPin := Pin{
 		PinVerb: verb, Host: host, Port: port,
@@ -65,15 +71,15 @@ func parsePin(verb string, pinStr string) []string {
 	//logger := loggo.GetLogger("coderockit.cli.crcli")
 	var parts []string
 
-	// [verb] crpin://cooderocket.io/asdf/asdfasdfasdf/v1.1.1/
-	beginIndex := strings.Index(pinStr, verb+" crpin:")
+	// [verb] pin://cooderocket.io/asdf/asdfasdfasdf/v1.1.1/
+	beginIndex := strings.Index(pinStr, verb+" pin:")
 	if beginIndex != -1 {
 		realPin := strings.Split(pinStr[beginIndex:len(pinStr)], " ")
 		//logger.Debugf("realPin 0: %s", realPin[0])
-		parts = strings.Split(realPin[1][8:len(realPin[1])], "/")
+		parts = strings.Split(realPin[1][6:len(realPin[1])], "/")
 	}
 
-	//logger.Debugf("parsePin parts is: %s", parts)
+	//logger.Debugf("%s :: %s :: parsePin parts is: %s", verb, pinStr, parts)
 	return parts
 }
 
@@ -86,7 +92,17 @@ func getResourceURL(pin Pin) string {
 }
 
 func getVerifyURL(pin Pin) string {
-	return getResourceURL(pin) + pin.GroupName + "/" + pin.Name + "/" + pin.Version + "/" + pin.Hash
+	//logger := loggo.GetLogger("coderockit.cli.crcli")
+	//logger.Debugf("Pin version: %s", pin.Version)
+	//logger.Debugf("Pin hash: %s", pin.Hash)
+	versionAndHash := ""
+	if pin.Version != "" {
+		versionAndHash += "/" + pin.Version
+	}
+	if pin.Hash != "" {
+		versionAndHash += "/" + pin.Hash
+	}
+	return getResourceURL(pin) + pin.GroupName + "/" + pin.Name + versionAndHash
 }
 
 func verifyPin(pin Pin) Pin {
