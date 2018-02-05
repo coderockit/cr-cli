@@ -20,14 +20,13 @@ type Pin struct {
 	Name      string
 	Version   string
 	Hash      string
-	Verified  bool
 	ErrorMsg  string
 }
 
 // The CodeRockIt pinmap type -- map file paths to their contained pins
 type Pinmap map[string][]Pin
 
-func NewPin(verb string, pinStr string) Pin {
+func NewPin(fullFilepath string, verb string, pinStr string) Pin {
 	logger := loggo.GetLogger("coderockit.cli.crcli")
 	//logger.Debugf("%s :: Creating new pin: %s", verb, pinStr)
 
@@ -61,7 +60,7 @@ func NewPin(verb string, pinStr string) Pin {
 	newPin := Pin{
 		PinVerb: verb, Host: host, Port: port,
 		GroupName: groupName, Name: name,
-		Version: version, Hash: hash, Verified: false,
+		Version: version, Hash: hash,
 		ErrorMsg: "No attempt to verify yet",
 	}
 	//logger.Debugf("returning newPin: %s", newPin)
@@ -121,16 +120,16 @@ func verifyPin(pin Pin) Pin {
 
 	if err == nil {
 		if resp.StatusCode() == 200 {
-			pin.Verified = true
+			//pin.Verified = string(resp.Body())
 			pin.ErrorMsg = ""
 		} else {
 			//logger.Debugf("resonse body: %s", resp.Body())
-			pin.Verified = false
+			//pin.Verified = false
 			respBody := string(resp.Body())
 			pin.ErrorMsg = fmt.Sprintf("Fatal: verification failed with error: %s", respBody)
 		}
 	} else {
-		pin.Verified = false
+		//pin.Verified = false
 		pin.ErrorMsg = fmt.Sprintf("%s", err)
 		logger.Criticalf("Error: %s", err)
 	}

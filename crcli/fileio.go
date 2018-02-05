@@ -11,31 +11,31 @@ import (
 	"github.com/juju/loggo"
 )
 
-func SavePinCache(pinCache Pinmap) {
+func SavePinsToApply(pinsToApply Pinmap) {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
-	//logger.Debugf("Saving pin cache: %s", pinCache)
+	//logger.Debugf("Saving pins to apply: %s", pinsToApply)
 
-	pinCachePath := GetWorkDirectory() + "/pincache.json"
-	jsonString, err := json.Marshal(pinCache)
+	pinsToApplyPath := GetWorkDirectory() + "/pinsToApply.json"
+	jsonString, err := json.Marshal(pinsToApply)
 	if err == nil {
 		//logger.Debugf("JSON to save: %s", jsonString)
-		err := ioutil.WriteFile(pinCachePath, jsonString, 0644)
+		err := ioutil.WriteFile(pinsToApplyPath, jsonString, 0644)
 		if err != nil {
 			logger.Debugf("Error: %s", err)
 		} else {
-			logger.Debugf("Wrote pin cache to: %s", pinCachePath)
+			logger.Debugf("Wrote pin cache to: %s", pinsToApplyPath)
 		}
 	} else {
 		logger.Debugf("Error: %s", err)
 	}
 }
 
-func ReadInPinCache(pinCache Pinmap) {
+func ReadInPinsToApply(pinsToApply Pinmap) {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	logger.Debugf("Reading pin cache")
 }
 
-func ProcessPath(addPath string, pinCache Pinmap) Pinmap {
+func ProcessPath(addPath string, pinsToApply Pinmap) Pinmap {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	abs, err := filepath.Abs(addPath)
 	//logger.Debugf("Processing path: %s", abs)
@@ -49,7 +49,7 @@ func ProcessPath(addPath string, pinCache Pinmap) Pinmap {
 				allFiles, err := ioutil.ReadDir(abs)
 				if err == nil {
 					for _, nextFile := range allFiles {
-						pinCache = ProcessPath(abs+"/"+nextFile.Name(), pinCache)
+						pinsToApply = ProcessPath(abs+"/"+nextFile.Name(), pinsToApply)
 					}
 				}
 			case mode.IsRegular():
@@ -58,7 +58,7 @@ func ProcessPath(addPath string, pinCache Pinmap) Pinmap {
 				newPins := GetPins(addPath)
 				//logger.Debugf("!!!newPins is: %s", newPins)
 				if newPins != nil && len(newPins) > 0 {
-					pinCache[addPath] = append(pinCache[addPath], newPins...)
+					pinsToApply[addPath] = append(pinsToApply[addPath], newPins...)
 					//logger.Debugf("Found pins in: %s", addPath)
 				}
 			}
@@ -69,7 +69,7 @@ func ProcessPath(addPath string, pinCache Pinmap) Pinmap {
 		logger.Debugf("Error with path %s: %s", addPath, err)
 	}
 
-	return pinCache
+	return pinsToApply
 }
 
 func GetPins(filepath string) []Pin {
@@ -120,7 +120,7 @@ func GetPins(filepath string) []Pin {
 			if len(matches) >= 1 {
 				//logger.Debugf("ENDGET matches is %d for string: %s", len(matches), scanStr)
 				if foundPinStr != "" {
-					newPin := NewPin(httpVerb, foundPinStr)
+					newPin := NewPin(filepath, httpVerb, foundPinStr)
 					newPin = verifyPin(newPin)
 					//logger.Debugf("Got pins: %s", pins)
 					pins = append(pins, newPin)

@@ -41,14 +41,19 @@ func LoadConfiguration(configDir string) {
 	// Create the .coderockit directory in the current directory if it does not exist
 	dotcr := GetWorkDirectory()
 	if err := os.MkdirAll(dotcr, os.ModePerm); err != nil {
-		logger.Debugf("Cannot create the %s directory.", dotcr)
+		logger.Debugf("Cannot create the %s directory: %s", dotcr, err)
+	}
+
+	dotcrCache := GetCacheDirectory()
+	if err := os.MkdirAll(dotcrCache, os.ModePerm); err != nil {
+		logger.Debugf("Cannot create the %s directory: %s", dotcrCache, err)
 	}
 
 	// Create the $HOME/.coderockit directory if it does not exist
 	homeDotcr := GetHomeWorkDirectory()
 	if homeDotcr != "" {
 		if err := os.MkdirAll(homeDotcr, os.ModePerm); err != nil {
-			logger.Debugf("Cannot create the %s directory.", homeDotcr)
+			logger.Debugf("Cannot create the %s directory: %s", homeDotcr, err)
 		}
 	}
 }
@@ -90,6 +95,10 @@ func GetApiAccessToken() string {
 
 func GetWorkDirectory() string {
 	return filepath.Join(".", codeRockItWorkDirName)
+}
+
+func GetCacheDirectory() string {
+	return filepath.Join(".", codeRockItWorkDirName, "cache")
 }
 
 func GetConfigFilename() (string, error) {
