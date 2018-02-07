@@ -2,6 +2,7 @@ package crcli
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -72,6 +73,38 @@ func ProcessPath(addPath string, pinsToApply Pinmap) Pinmap {
 	return pinsToApply
 }
 
+// dropCR drops a terminal \r from the data.
+//func dropCR(data []byte) []byte {
+//	if len(data) > 0 && data[len(data)-1] == '\r' {
+//		return data[0 : len(data)-1]
+//	}
+//	return data
+//}
+
+// ScanLines is a split function for a Scanner that returns each line of
+// text, stripped of any trailing end-of-line marker. The returned line may
+// be empty. The end-of-line marker is one optional carriage return followed
+// by one mandatory newline. In regular expression notation, it is `\r?\n`.
+// The last non-empty line of input will be returned even if it has no
+// newline.
+func ScanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexByte(data, '\n'); i >= 0 {
+		// We have a full newline-terminated line.
+		//return i + 1, dropCR(data[0:i]), nil
+		return i + 2, data[0 : i+1], nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		//return len(data), dropCR(data), nil
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
+}
+
 func GetPins(filepath string) []Pin {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	pins := make([]Pin, 0)
@@ -80,13 +113,19 @@ func GetPins(filepath string) []Pin {
 	if err == nil {
 		pinScanner := bufio.NewScanner(file)
 
-		var crgetRE = regexp.MustCompile(`GET pin\:`)
-		var crputRE = regexp.MustCompile(`PUT pin\:`)
+		// NOTE: it may be necessary to pass in a binary friendly Split function
+		pinScanner.Split(ScanLines)
+
+		var crgetRE = regexp.MustCompile(`GET \/pin\/`)
+		var crputRE = regexp.MustCompile(`PUT \/pin\/`)
+		var crputPrivateRE = regexp.MustCompile(`PUTPRIVATE \/pin\/`)
 		var crEndRE = regexp.MustCompile(`ENDPIN`)
 		//var crputEndRE = regexp.MustCompile(`ENDPIN`)
 
 		var foundPinStr string = ""
 		var httpVerb string = ""
+		var pinContent string = ""
+
 		for pinScanner.Scan() {
 			scanStr := pinScanner.Text()
 
@@ -116,31 +155,36 @@ func GetPins(filepath string) []Pin {
 				//logger.Debugf("PUT matches is %d for string: %s", len(matches), foundPinStr)
 			}
 
+			matches = crputPrivateRE.FindStringSubmatch(scanStr)
+			if len(matches) >= 1 {
+				//pins = append(pins, *NewPin(pinStr))
+				if foundPinStr == "" {
+					foundPinStr = scanStr
+					httpVerb = "PUTPRIVATE"
+				} else {
+					logger.Debugf("Last pin failed, your ENDPUT is probably incorrect: %s", foundPinStr)
+					break
+				}
+				//logger.Debugf("PUT matches is %d for string: %s", len(matches), foundPinStr)
+			}
+
 			matches = crEndRE.FindStringSubmatch(scanStr)
 			if len(matches) >= 1 {
 				//logger.Debugf("ENDGET matches is %d for string: %s", len(matches), scanStr)
 				if foundPinStr != "" {
-					newPin := NewPin(filepath, httpVerb, foundPinStr)
-					newPin = verifyPin(newPin)
+					newPin := NewPin(httpVerb, foundPinStr)
+					newPin = verifyPin(newPin, pinContent)
 					//logger.Debugf("Got pins: %s", pins)
 					pins = append(pins, newPin)
 					//logger.Debugf("Got pins: %s", pins)
 					foundPinStr = ""
+					pinContent = ""
 				}
 			}
 
-			//			matches = crEndRE.FindStringSubmatch(scanStr)
-			//			if len(matches) >= 1 {
-			//				//logger.Debugf("ENDPUT matches is %d for string: %s", len(matches), scanStr)
-			//				if foundPinStr != "" {
-			//					newPin := NewPin("PUT", foundPinStr)
-			//					newPin = verifyPin(newPin)
-			//					//logger.Debugf("Got pins: %s", pins)
-			//					pins = append(pins, newPin)
-			//					//logger.Debugf("Got pins: %s", pins)
-			//					foundPinStr = ""
-			//				}
-			//			}
+			if foundPinStr != "" {
+				pinContent += scanStr
+			}
 		}
 
 		if foundPinStr != "" {

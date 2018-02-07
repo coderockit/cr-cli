@@ -13,7 +13,7 @@ import (
 
 const codeRockItWorkDirName = ".coderockit"
 
-var apiAccessToken = ""
+var apiAccessTokens []string
 
 func LoadConfiguration(configDir string) {
 	viper.SetConfigType("json")
@@ -71,9 +71,9 @@ func GetHomeWorkDirectory() string {
 	return ""
 }
 
-func GetApiAccessToken() string {
+func GetApiAccessToken(tokIndex int) string {
 	logger := loggo.GetLogger("coderockit.cli.config")
-	if apiAccessToken == "" {
+	if apiAccessTokens == nil {
 		homeConfig := viper.New()
 		homeConfig.SetConfigType("json")
 		homeConfig.SetConfigName("config")             // name of config file (without extension)
@@ -84,13 +84,11 @@ func GetApiAccessToken() string {
 			logger.Debugf("Fatal error reading config.json config file: %s \n", err)
 		}
 
-		if homeConfig.IsSet("apiAccessToken") {
-			apiAccessToken = homeConfig.GetString("apiAccessToken")
-		} else {
-			apiAccessToken = ""
+		if homeConfig.IsSet("apiAccessTokens") {
+			apiAccessTokens = homeConfig.GetStringSlice("apiAccessTokens")
 		}
 	}
-	return apiAccessToken
+	return apiAccessTokens[tokIndex]
 }
 
 func GetWorkDirectory() string {
