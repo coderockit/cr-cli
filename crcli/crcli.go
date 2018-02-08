@@ -3,6 +3,7 @@ package crcli
 import (
 	"crypto/tls"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/juju/loggo"
@@ -49,7 +50,7 @@ func NewPin(verb string, pinUri string) Pin {
 
 	groupName := parts[0]
 	name := parts[1]
-	version := ""
+	version := "NONE"
 	if len(parts) >= 3 {
 		version = parts[2]
 	}
@@ -57,7 +58,7 @@ func NewPin(verb string, pinUri string) Pin {
 	//	if len(parts) >= 5 {
 	//		hash = parts[4]
 	//	}
-	parentVersion := ""
+	parentVersion := "NONE"
 	if len(parts) >= 4 {
 		parentVersion = parts[3]
 	}
@@ -67,7 +68,7 @@ func NewPin(verb string, pinUri string) Pin {
 		Verb: verb, IsPrivate: isPrivate,
 		GroupName: groupName, Name: name,
 		Version: version, ParentVersion: parentVersion,
-		Hash: "", ErrorMsg: "No attempt to verify yet",
+		Hash: "NONE", ErrorMsg: "No attempt to verify yet",
 	}
 	logger.Debugf("returning newPin: %s", newPin)
 	return newPin
@@ -102,31 +103,37 @@ func getVerifyURI(apiURL string, pin Pin) string {
 	logger := loggo.GetLogger("coderockit.cli.crcli")
 	logger.Debugf("Pin version: %s", pin.Version)
 	logger.Debugf("Pin hash: %s", pin.Hash)
-	versionAndHashAndParent := ""
+	//versionAndHashAndParent := ""
+
 	if strings.Index(pin.Verb, "GET") == 0 {
-		if pin.Version != "" {
-			versionAndHashAndParent += "/" + pin.Version
-		} else {
-			versionAndHashAndParent += "/NONE"
-		}
+		//if pin.Version != "" {
+		//	versionAndHashAndParent += "/" + pin.Version
+		//} else {
+		//	versionAndHashAndParent += "/NONE"
+		//}
+		return apiURL + "/" + pin.GroupName + "/" + pin.Name + "/" + pin.Version
 	} else if strings.Index(pin.Verb, "PUT") == 0 {
-		if pin.Version != "" {
-			versionAndHashAndParent += "/" + pin.Version
-		} else {
-			versionAndHashAndParent += "/NONE"
-		}
-		if pin.Hash != "" {
-			versionAndHashAndParent += "/" + pin.Hash
-		} else {
-			versionAndHashAndParent += "/NONE"
-		}
-		if pin.ParentVersion != "" {
-			versionAndHashAndParent += "/" + pin.ParentVersion
-		} else {
-			versionAndHashAndParent += "/NONE"
-		}
+		//if pin.Version != "" {
+		//	versionAndHashAndParent += "/" + pin.Version
+		//} else {
+		//	versionAndHashAndParent += "/NONE"
+		//}
+		//if pin.Hash != "" {
+		//	versionAndHashAndParent += "/" + pin.Hash
+		//} else {
+		//	versionAndHashAndParent += "/NONE"
+		//}
+		//if pin.ParentVersion != "" {
+		//	versionAndHashAndParent += "/" + pin.ParentVersion
+		//} else {
+		//	versionAndHashAndParent += "/NONE"
+		//}
+		return apiURL + "/" + pin.GroupName + "/" + pin.Name + "/" +
+			pin.Version + "/" + pin.Hash + "/" +
+			pin.ParentVersion + "/" + strconv.FormatBool(pin.IsPrivate)
 	}
-	return apiURL + "/" + pin.GroupName + "/" + pin.Name + versionAndHashAndParent
+
+	return ""
 }
 
 func verifyPin(pin Pin, pinContent string) Pin {
