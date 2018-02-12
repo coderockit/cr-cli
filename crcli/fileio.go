@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/juju/loggo"
 )
@@ -31,12 +32,36 @@ func SavePinsToApply(pinsToApply Pinmap) {
 	}
 }
 
-func ReadInPinsToApply(pinsToApply Pinmap) {
+func ReadInPinsToApply() Pinmap {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	logger.Debugf("Reading pin cache")
+
+	pinsToApply := make(Pinmap)
+
+	pinsToApplyPath := GetWorkDirectory() + "/pinsToApply.json"
+	jsonString, err := ioutil.ReadFile(pinsToApplyPath)
+	if err == nil {
+		err := json.Unmarshal(jsonString, &pinsToApply)
+		if err != nil {
+			logger.Debugf("Error unmarshalling json in file %s: %s", pinsToApplyPath, err)
+		}
+	} else {
+		logger.Debugf("Error reading file %s: %s", pinsToApplyPath, err)
+	}
+
+	return pinsToApply
 }
 
-func ProcessPath(addPath string, pinsToApply Pinmap) Pinmap {
+func DeleteFile(filepath string) {
+	logger := loggo.GetLogger("coderockit.cli.fileio")
+	err := os.Remove(filepath)
+
+	if err != nil {
+		logger.Debugf("Error deleting file: %s", err)
+	}
+}
+
+func AddPathToPins(addPath string, pinsToApply Pinmap) Pinmap {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	abs, err := filepath.Abs(addPath)
 	//logger.Debugf("Processing path: %s", abs)
@@ -50,13 +75,14 @@ func ProcessPath(addPath string, pinsToApply Pinmap) Pinmap {
 				allFiles, err := ioutil.ReadDir(abs)
 				if err == nil {
 					for _, nextFile := range allFiles {
-						pinsToApply = ProcessPath(abs+"/"+nextFile.Name(), pinsToApply)
+						pinsToApply = AddPathToPins(abs+"/"+nextFile.Name(), pinsToApply)
 					}
 				}
 			case mode.IsRegular():
 				// do file stuff
 				//fmt.Println("file")
 				newPins := GetPins(addPath)
+				delete(pinsToApply, addPath)
 				//logger.Debugf("!!!newPins is: %s", newPins)
 				if newPins != nil && len(newPins) > 0 {
 					pinsToApply[addPath] = append(pinsToApply[addPath], newPins...)
@@ -70,6 +96,22 @@ func ProcessPath(addPath string, pinsToApply Pinmap) Pinmap {
 		logger.Debugf("Error with path %s: %s", addPath, err)
 	}
 
+	return pinsToApply
+}
+
+func RemovePathFromPins(removePath string, pinsToApply Pinmap) Pinmap {
+	logger := loggo.GetLogger("coderockit.cli.fileio")
+	abs, err := filepath.Abs(removePath)
+	if err == nil {
+		for filepath := range pinsToApply {
+			// fmt.Printf("key[%s] value[%s]\n", filepath, pinsToApply[filepath])
+			if strings.Contains(filepath, abs) {
+				delete(pinsToApply, filepath)
+			}
+		}
+	} else {
+		logger.Debugf("Error with path %s: %s", removePath, err)
+	}
 	return pinsToApply
 }
 

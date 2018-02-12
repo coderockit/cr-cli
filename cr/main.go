@@ -60,8 +60,9 @@ func main() {
 			Usage:   "Remove a file or a directory and it's files recursively from the list of files to apply changes to",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				logger := loggo.GetLogger("coderockit.cli.main")
-				logger.Debugf("remove files: %s", "need to implement")
+				//logger := loggo.GetLogger("coderockit.cli.main")
+				//logger.Debugf("remove files: %s", "need to implement")
+				crcli.RemovePaths(c.Args())
 				return nil
 			},
 		},
@@ -71,8 +72,9 @@ func main() {
 			Usage:   "Empty out all files from the list of files to apply changes to",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				logger := loggo.GetLogger("coderockit.cli.main")
-				logger.Debugf("remove all files: %s", "need to implement")
+				//logger := loggo.GetLogger("coderockit.cli.main")
+				//logger.Debugf("remove all files: %s", "need to implement")
+				crcli.EmptyPinsToApply(c.Args())
 				return nil
 			},
 		},
@@ -82,8 +84,9 @@ func main() {
 			Usage:   "Show the list of files that an apply will affect",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				logger := loggo.GetLogger("coderockit.cli.main")
-				logger.Debugf("list of files: %s", "need to implement")
+				//logger := loggo.GetLogger("coderockit.cli.main")
+				//logger.Debugf("list of files: %s", "need to implement")
+				crcli.ShowStatus(c.Args())
 				return nil
 			},
 		},

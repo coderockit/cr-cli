@@ -2,7 +2,9 @@ package crcli
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -19,7 +21,7 @@ type Pin struct {
 	Version       string
 	ParentVersion string
 	Hash          string
-	ErrorMsg      string
+	ApiMsg        string
 }
 
 // The CodeRockIt pinmap type -- map file paths to their contained pins
@@ -68,7 +70,7 @@ func NewPin(verb string, pinUri string) Pin {
 		Verb: verb, IsPrivate: isPrivate,
 		GroupName: groupName, Name: name,
 		Version: version, ParentVersion: parentVersion,
-		Hash: "NONE", ErrorMsg: "No attempt to verify yet",
+		Hash: "NONE", ApiMsg: "No attempt to verify yet",
 	}
 	logger.Debugf("returning newPin: %s", newPin)
 	return newPin
@@ -100,9 +102,9 @@ func parsepinUri(verb string, pinUri string) []string {
 //}
 
 func getVerifyURI(apiURL string, pin Pin) string {
-	logger := loggo.GetLogger("coderockit.cli.crcli")
-	logger.Debugf("Pin version: %s", pin.Version)
-	logger.Debugf("Pin hash: %s", pin.Hash)
+	//logger := loggo.GetLogger("coderockit.cli.crcli")
+	//logger.Debugf("Pin version: %s", pin.Version)
+	//logger.Debugf("Pin hash: %s", pin.Hash)
 	//versionAndHashAndParent := ""
 
 	if strings.Index(pin.Verb, "GET") == 0 {
@@ -111,7 +113,8 @@ func getVerifyURI(apiURL string, pin Pin) string {
 		//} else {
 		//	versionAndHashAndParent += "/NONE"
 		//}
-		return apiURL + "/" + pin.GroupName + "/" + pin.Name + "/" + pin.Version
+		return apiURL + "/" + pin.GroupName + "/" + pin.Name + "/" +
+			url.PathEscape(pin.Version)
 	} else if strings.Index(pin.Verb, "PUT") == 0 {
 		//if pin.Version != "" {
 		//	versionAndHashAndParent += "/" + pin.Version
@@ -129,7 +132,7 @@ func getVerifyURI(apiURL string, pin Pin) string {
 		//	versionAndHashAndParent += "/NONE"
 		//}
 		return apiURL + "/" + pin.GroupName + "/" + pin.Name + "/" +
-			pin.Version + "/" + pin.Hash + "/" +
+			url.PathEscape(pin.Version) + "/" + UrlEncodeBase64(pin.Hash) + "/" +
 			pin.ParentVersion + "/" + strconv.FormatBool(pin.IsPrivate)
 	}
 
@@ -145,11 +148,15 @@ func verifyPin(pin Pin, pinContent string) Pin {
 		resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	}
 
+	// calculate hash of pinContent
+	pin.Hash = Hash(pinContent)
+
 	apiURLs := ConfStringSlice("apiURLs", []string{"https://coderockit.io/api/v1"})
 	for tokIndex, apiURL := range apiURLs {
 		verifyURL := getVerifyURI(apiURL, pin)
 		logger.Debugf("verifying %s pin with URL: %s", pin.Verb, verifyURL)
 
+		var err error
 		if strings.Index(pin.Verb, "GET") == 0 {
 			resp, err := resty.R().
 				SetHeader("Accept", "application/json").
@@ -158,9 +165,9 @@ func verifyPin(pin Pin, pinContent string) Pin {
 
 			// The response should contain at most the last three
 			// versions of this pin, if empty then there was an error
-			// trying to GET this pin - the emptyErrorMsg explains why
+			// trying to GET this pin - the ApiMsg explains why
 
-			pin = handleResponse(pin, err, resp, true)
+			pin, err = handleResponse(pin, err, resp, true)
 		} else if strings.Index(pin.Verb, "PUT") == 0 {
 			resp, err := resty.R().
 				SetHeader("Accept", "application/json").
@@ -170,12 +177,12 @@ func verifyPin(pin Pin, pinContent string) Pin {
 
 			// The response should contain at most the last three
 			// versions of this pin, if empty then there was an error
-			// trying to PUT this pin - the emptyErrorMsg explains why
+			// trying to PUT this pin - the ApiMsg explains why
 
-			pin = handleResponse(pin, err, resp, false)
+			pin, err = handleResponse(pin, err, resp, false)
 		}
 
-		if pin.ErrorMsg == "" {
+		if err == nil {
 			break
 		}
 	}
@@ -183,24 +190,29 @@ func verifyPin(pin Pin, pinContent string) Pin {
 	return pin
 }
 
-func handleResponse(pin Pin, err error, resp *resty.Response, isGet bool) Pin {
+func handleResponse(pin Pin, err error, resp *resty.Response, isGet bool) (Pin, error) {
 	logger := loggo.GetLogger("coderockit.cli.crcli")
 
+	var err1 error
 	if err == nil {
+		logger.Debugf("resonse status code: %d", resp.StatusCode())
 		if resp.StatusCode() == 200 {
 			//pin.Verified = string(resp.Body())
-			pin.ErrorMsg = ""
-		} else {
-			//logger.Debugf("resonse body: %s", resp.Body())
-			//pin.Verified = false
+			//err1 := nil
 			respBody := string(resp.Body())
-			pin.ErrorMsg = fmt.Sprintf("Fatal: verification failed with error: %s", respBody)
+			pin.ApiMsg = fmt.Sprintf("Success: %s", respBody)
+		} else {
+			//pin.Verified = false
+			err1 = errors.New(string(resp.StatusCode()))
+			respBody := string(resp.Body())
+			pin.ApiMsg = fmt.Sprintf("Fatal %d: verification failed with error: %s", resp.StatusCode(), respBody)
 		}
 	} else {
 		//pin.Verified = false
-		pin.ErrorMsg = fmt.Sprintf("Error: %s", err)
+		err1 = err
+		pin.ApiMsg = fmt.Sprintf("Error: %s", err)
 		logger.Criticalf("Error: %s", err)
 	}
 
-	return pin
+	return pin, err1
 }
