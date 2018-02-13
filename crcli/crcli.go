@@ -2,6 +2,7 @@ package crcli
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -15,13 +16,18 @@ import (
 // The CodeRockIt pin type
 type Pin struct {
 	Verb          string
-	IsPrivate     bool
 	GroupName     string
 	Name          string
 	Version       string
-	ParentVersion string
+	ApplyVersion  string
 	Hash          string
+	ParentVersion string
+	IsPrivate     bool
 	ApiMsg        string
+}
+
+func (p Pin) String() string {
+	return fmt.Sprintf("%s %s/%s/%s/%s/%s", p.Verb, p.GroupName, p.Name, p.Version, p.Hash, p.ParentVersion)
 }
 
 // The CodeRockIt pinmap type -- map file paths to their contained pins
@@ -93,14 +99,6 @@ func parsepinUri(verb string, pinUri string) []string {
 	return parts
 }
 
-//func getResourceURI(pin Pin) string {
-//	port := ":" + strconv.Itoa(pin.Port)
-//	if pin.Port == 80 || pin.Port == 443 {
-//		port = ""
-//	}
-//	return ConfString("apiProtocol", "https") + "://" + pin.Host + port + "/" + ConfString("apiPinResource", "api/v1/pin") + "/"
-//}
-
 func getVerifyURI(apiURL string, pin Pin) string {
 	//logger := loggo.GetLogger("coderockit.cli.crcli")
 	//logger.Debugf("Pin version: %s", pin.Version)
@@ -108,29 +106,9 @@ func getVerifyURI(apiURL string, pin Pin) string {
 	//versionAndHashAndParent := ""
 
 	if strings.Index(pin.Verb, "GET") == 0 {
-		//if pin.Version != "" {
-		//	versionAndHashAndParent += "/" + pin.Version
-		//} else {
-		//	versionAndHashAndParent += "/NONE"
-		//}
 		return apiURL + "/" + pin.GroupName + "/" + pin.Name + "/" +
 			url.PathEscape(pin.Version)
 	} else if strings.Index(pin.Verb, "PUT") == 0 {
-		//if pin.Version != "" {
-		//	versionAndHashAndParent += "/" + pin.Version
-		//} else {
-		//	versionAndHashAndParent += "/NONE"
-		//}
-		//if pin.Hash != "" {
-		//	versionAndHashAndParent += "/" + pin.Hash
-		//} else {
-		//	versionAndHashAndParent += "/NONE"
-		//}
-		//if pin.ParentVersion != "" {
-		//	versionAndHashAndParent += "/" + pin.ParentVersion
-		//} else {
-		//	versionAndHashAndParent += "/NONE"
-		//}
 		return apiURL + "/" + pin.GroupName + "/" + pin.Name + "/" +
 			url.PathEscape(pin.Version) + "/" + UrlEncodeBase64(pin.Hash) + "/" +
 			pin.ParentVersion + "/" + strconv.FormatBool(pin.IsPrivate)
@@ -151,7 +129,7 @@ func verifyPin(pin Pin, pinContent string) Pin {
 	// calculate hash of pinContent
 	pin.Hash = Hash(pinContent)
 
-	apiURLs := ConfStringSlice("apiURLs", []string{"https://coderockit.io/api/v1"})
+	apiURLs := ConfStringSlice("apiURLs", []string{"https://coderockit.io/api/v1/pin"})
 	for tokIndex, apiURL := range apiURLs {
 		verifyURL := getVerifyURI(apiURL, pin)
 		logger.Debugf("verifying %s pin with URL: %s", pin.Verb, verifyURL)
@@ -183,6 +161,7 @@ func verifyPin(pin Pin, pinContent string) Pin {
 		}
 
 		if err == nil {
+			WritePinContentToApply(pin, pinContent)
 			break
 		}
 	}
@@ -197,18 +176,24 @@ func handleResponse(pin Pin, err error, resp *resty.Response, isGet bool) (Pin, 
 	if err == nil {
 		logger.Debugf("resonse status code: %d", resp.StatusCode())
 		if resp.StatusCode() == 200 {
-			//pin.Verified = string(resp.Body())
-			//err1 := nil
-			respBody := string(resp.Body())
-			pin.ApiMsg = fmt.Sprintf("Success: %s", respBody)
+			respBody := resp.Body()
+			var respObj interface{}
+			err := json.Unmarshal(respBody, &respObj)
+			if err == nil {
+				respMap := respObj.(map[string]interface{})
+				logger.Debugf("Unmarshalled object: %s", respMap)
+				pin.ApplyVersion = respMap["applyVersion"].(string)
+				pin.ApiMsg = fmt.Sprintf("Success: %s", respBody)
+			} else {
+				logger.Debugf("Error unmarshalling json in response %s: %s", respBody, err)
+				pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
+			}
 		} else {
-			//pin.Verified = false
 			err1 = errors.New(string(resp.StatusCode()))
 			respBody := string(resp.Body())
 			pin.ApiMsg = fmt.Sprintf("Fatal %d: verification failed with error: %s", resp.StatusCode(), respBody)
 		}
 	} else {
-		//pin.Verified = false
 		err1 = err
 		pin.ApiMsg = fmt.Sprintf("Error: %s", err)
 		logger.Criticalf("Error: %s", err)

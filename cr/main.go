@@ -34,6 +34,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "cr"
 	app.Usage = "CodeRockIt processor"
+	app.Version = "1.1.3"
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -86,7 +87,7 @@ func main() {
 				crcli.LoadConfiguration(configDir)
 				//logger := loggo.GetLogger("coderockit.cli.main")
 				//logger.Debugf("list of files: %s", "need to implement")
-				crcli.ShowStatus(c.Args())
+				crcli.ShowStatus(c.Args(), false)
 				return nil
 			},
 		},
@@ -96,15 +97,16 @@ func main() {
 			Usage:   "Show the detailed source code diffs of files for changes that would happen on an apply",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				logger := loggo.GetLogger("coderockit.cli.main")
-				logger.Debugf("set of diffs: %s", "need to implement")
+				//logger := loggo.GetLogger("coderockit.cli.main")
+				//logger.Debugf("set of diffs: %s", "need to implement")
+				crcli.ShowStatus(c.Args(), true)
 				return nil
 			},
 		},
 		{
 			Name:    "apply",
 			Aliases: []string{"y"},
-			Usage:   "Apply the changes for files that have been added and then reset the list of files to empty",
+			Usage:   "Apply the changes for files that have been added and then remove the pins that were applied successfully",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
 				logger := loggo.GetLogger("coderockit.cli.main")

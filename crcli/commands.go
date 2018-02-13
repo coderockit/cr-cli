@@ -1,7 +1,9 @@
 package crcli
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/loggo"
 	"gopkg.in/urfave/cli.v1"
@@ -55,7 +57,30 @@ func EmptyPinsToApply(args cli.Args) {
 	DeleteFile(pinsToApplyPath)
 }
 
-func ShowStatus(args cli.Args) {
-	//pinsToApply := ReadInPinsToApply()
+func ShowStatus(args cli.Args, diffs bool) {
+	pinsToApply := ReadInPinsToApply()
 
+	fmt.Println("======================================================" +
+		"======================================================" +
+		"============================================================")
+	for filepath := range pinsToApply {
+		// fmt.Printf("key[%s] value[%s]\n", filepath, pinsToApply[filepath])
+		//if strings.Contains(filepath, abs) {
+		//	delete(pinsToApply, filepath)
+		//}
+		fmt.Printf("** %s\n", filepath)
+		pins := pinsToApply[filepath]
+		for _, pin := range pins {
+			if strings.HasPrefix(pin.ApiMsg, "Success") {
+				fmt.Printf("   -- Ready to apply version %s\n", pin.ApplyVersion)
+				fmt.Printf("      ==> %s\n", pin)
+			} else {
+				fmt.Printf("   -- Cannot apply %s\n", pin)
+			}
+			fmt.Printf("      >> Api message %s\n", pin.ApiMsg)
+		}
+		fmt.Println("======================================================" +
+			"======================================================" +
+			"============================================================")
+	}
 }

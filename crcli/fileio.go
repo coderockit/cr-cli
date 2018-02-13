@@ -17,7 +17,7 @@ func SavePinsToApply(pinsToApply Pinmap) {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	//logger.Debugf("Saving pins to apply: %s", pinsToApply)
 
-	pinsToApplyPath := GetWorkDirectory() + "/pinsToApply.json"
+	pinsToApplyPath := filepath.Join(GetWorkDirectory(), "pinsToApply.json")
 	jsonString, err := json.Marshal(pinsToApply)
 	if err == nil {
 		//logger.Debugf("JSON to save: %s", jsonString)
@@ -38,7 +38,7 @@ func ReadInPinsToApply() Pinmap {
 
 	pinsToApply := make(Pinmap)
 
-	pinsToApplyPath := GetWorkDirectory() + "/pinsToApply.json"
+	pinsToApplyPath := filepath.Join(GetWorkDirectory(), "pinsToApply.json")
 	jsonString, err := ioutil.ReadFile(pinsToApplyPath)
 	if err == nil {
 		err := json.Unmarshal(jsonString, &pinsToApply)
@@ -75,7 +75,7 @@ func AddPathToPins(addPath string, pinsToApply Pinmap) Pinmap {
 				allFiles, err := ioutil.ReadDir(abs)
 				if err == nil {
 					for _, nextFile := range allFiles {
-						pinsToApply = AddPathToPins(abs+"/"+nextFile.Name(), pinsToApply)
+						pinsToApply = AddPathToPins(filepath.Join(abs, nextFile.Name()), pinsToApply)
 					}
 				}
 			case mode.IsRegular():
@@ -224,7 +224,7 @@ func GetPins(filepath string) []Pin {
 				}
 			}
 
-			if foundPinStr != "" {
+			if foundPinStr != "" && scanStr != foundPinStr {
 				pinContent += scanStr
 			}
 		}
@@ -241,4 +241,24 @@ func GetPins(filepath string) []Pin {
 
 	//logger.Debugf("!!!!Got pins: %s", pins)
 	return pins
+}
+
+func WritePinContentToApply(pin Pin, pinContent string) {
+	logger := loggo.GetLogger("coderockit.cli.fileio")
+	contentDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
+	if pin.ApplyVersion != "" {
+		if err := os.MkdirAll(contentDir, os.ModePerm); err == nil {
+			err1 := ioutil.WriteFile(filepath.Join(contentDir, "pinContent.pin"), []byte(pinContent), 0644)
+			if err1 == nil {
+				err2 := ioutil.WriteFile(filepath.Join(contentDir, "pinHash.txt"), []byte(pin.Hash), 0644)
+				if err2 != nil {
+					logger.Debugf("Cannot write to file %s: %s", filepath.Join(contentDir, "pinHash.txt"), err2)
+				}
+			} else {
+				logger.Debugf("Cannot write to file %s: %s", filepath.Join(contentDir, "pinContent.pin"), err1)
+			}
+		} else {
+			logger.Debugf("Cannot create the %s directory: %s", contentDir, err)
+		}
+	}
 }
