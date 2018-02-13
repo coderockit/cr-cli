@@ -92,8 +92,8 @@ func parsepinUri(verb string, pinUri string) []string {
 }
 
 func getVerifyPinURI(apiURL string, pin Pin) string {
-	//logger := loggo.GetLogger("coderockit.cli.crcli")
-	//logger.Debugf("Pin version: %s", pin.Version)
+	logger := loggo.GetLogger("coderockit.cli.crcli")
+	logger.Debugf("Escaping pin version: %s", pin.Version)
 	//logger.Debugf("Pin hash: %s", pin.Hash)
 	//versionAndHashAndParent := ""
 

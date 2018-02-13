@@ -108,4 +108,13 @@ func ShowConfig(args cli.Args) {
 	} else {
 		logger.Debugf("Error reading file %s: %s", filename, err)
 	}
+
+	filename = GetHomeConfigFile()
+	fmt.Printf("Using home config file: %s\n", filename)
+	config, err = ioutil.ReadFile(filename)
+	if err == nil {
+		fmt.Printf("%s", config)
+	} else {
+		logger.Debugf("Error reading file %s: %s", filename, err)
+	}
 }

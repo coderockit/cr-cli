@@ -68,7 +68,7 @@ func GetHomeWorkDirectory() string {
 
 	user, err := user.Current()
 	if err == nil {
-		logger.Debugf("Home Dir: %s", user.HomeDir)
+		//logger.Debugf("Home Dir: %s", user.HomeDir)
 		return filepath.Join(user.HomeDir+"/.", codeRockItWorkDirName)
 	} else {
 		logger.Criticalf("Error: %s", err)
@@ -78,6 +78,10 @@ func GetHomeWorkDirectory() string {
 
 func GetHomeCacheDirectory() string {
 	return filepath.Join(GetHomeWorkDirectory(), "cache")
+}
+
+func GetHomeConfigFile() string {
+	return filepath.Join(GetHomeWorkDirectory(), "config.json")
 }
 
 func GetApiAccessToken(tokIndex int) string {

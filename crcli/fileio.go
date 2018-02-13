@@ -318,7 +318,9 @@ func VerifyGetPinsAgainstLocalPutPins(pinsToApply Pinmap) Pinmap {
 								matchingVersions := GetMatchingVersions(pin.Version, putApplyVersions)
 								if len(matchingVersions) > 0 {
 									logger.Debugf("Found matching versions: %s", matchingVersions)
-									pin.ApiMsg = fmt.Sprintf("Local PUT apply cache matches these versions %s :: %s -- IGNORING FAILURE -- %s", matchingVersions, absPinDir, pin.ApiMsg)
+									pin.ApiMsg = fmt.Sprintf("Local PUT apply cache matches these versions "+
+										"%s :: %s -- MAY OVERRIDE FAILURE -- %s", matchingVersions,
+										absPinDir, pin.ApiMsg)
 									pins[pinIndex] = pin
 								} else {
 									logger.Debugf("Cannot verify pin using local apply %s", pin)
