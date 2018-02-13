@@ -53,9 +53,9 @@ func ReadInPinsToApply() Pinmap {
 	return pinsToApply
 }
 
-func DeleteFile(filepath string) {
+func DeleteFile(pathToFile string) {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
-	err := os.Remove(filepath)
+	err := os.Remove(pathToFile)
 
 	if err != nil {
 		logger.Debugf("Error deleting file: %s", err)
@@ -104,10 +104,10 @@ func RemovePathFromPins(removePath string, pinsToApply Pinmap) Pinmap {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	abs, err := filepath.Abs(removePath)
 	if err == nil {
-		for filepath := range pinsToApply {
-			// fmt.Printf("key[%s] value[%s]\n", filepath, pinsToApply[filepath])
-			if strings.Contains(filepath, abs) {
-				delete(pinsToApply, filepath)
+		for pinFile := range pinsToApply {
+			// fmt.Printf("key[%s] value[%s]\n", pinFile, pinsToApply[pinFile])
+			if strings.Contains(pinFile, abs) {
+				delete(pinsToApply, pinFile)
 			}
 		}
 	} else {
@@ -148,11 +148,11 @@ func ScanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return 0, nil, nil
 }
 
-func GetPins(filepath string) []Pin {
+func GetPins(pinFile string) []Pin {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	pins := make([]Pin, 0)
 
-	file, err := os.Open(filepath)
+	file, err := os.Open(pinFile)
 	if err == nil {
 		pinScanner := bufio.NewScanner(file)
 
@@ -235,7 +235,7 @@ func GetPins(filepath string) []Pin {
 		}
 
 	} else {
-		logger.Debugf("Error with path %s: %s", filepath, err)
+		logger.Debugf("Error with path %s: %s", pinFile, err)
 	}
 
 	defer file.Close()
@@ -270,17 +270,74 @@ func WritePinContentToApply(pin Pin, pinContent string) {
 	contentDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
 	if pin.ApplyVersion != "" {
 		if err := os.MkdirAll(contentDir, os.ModePerm); err == nil {
-			err1 := ioutil.WriteFile(filepath.Join(contentDir, "pinContent.pin"), []byte(pinContent), 0644)
+			pinContentFile := filepath.Join(contentDir, "pinContent.pin")
+			err1 := ioutil.WriteFile(pinContentFile, []byte(pinContent), 0644)
 			if err1 == nil {
-				err2 := ioutil.WriteFile(filepath.Join(contentDir, "pinHash.txt"), []byte(pin.Hash), 0644)
+				pinHashFile := filepath.Join(contentDir, "pinHash.txt")
+				err2 := ioutil.WriteFile(pinHashFile, []byte(pin.Hash), 0644)
 				if err2 != nil {
-					logger.Debugf("Cannot write to file %s: %s", filepath.Join(contentDir, "pinHash.txt"), err2)
+					logger.Debugf("Cannot write to file %s: %s", pinHashFile, err2)
 				}
 			} else {
-				logger.Debugf("Cannot write to file %s: %s", filepath.Join(contentDir, "pinContent.pin"), err1)
+				logger.Debugf("Cannot write to file %s: %s", pinContentFile, err1)
 			}
 		} else {
 			logger.Debugf("Cannot create the %s directory: %s", contentDir, err)
 		}
 	}
+}
+
+func VerifyGetPinsAgainstLocalPutPins(pinsToApply Pinmap) Pinmap {
+	logger := loggo.GetLogger("coderockit.cli.crcli")
+
+	for pinFile := range pinsToApply {
+		pins := pinsToApply[pinFile]
+		for pinIndex, pin := range pins {
+			if pin.IsGet() {
+				// now look in the local ./.coderockit/apply folder to see if
+				// a local unapplied pin will match the groupName/pinName/version
+				// and if it does then update the pin.ApiMsg to inform the user
+				dotcrApply := GetApplyDirectory()
+				pinDir := filepath.Join(dotcrApply, pin.GroupName, pin.Name)
+				absPinDir, err := filepath.Abs(pinDir)
+				if err == nil {
+					fi, err := os.Stat(absPinDir)
+					if err == nil {
+						if fi.IsDir() {
+							allFiles, err := ioutil.ReadDir(absPinDir)
+							if err == nil {
+
+								var putApplyVersions []string
+								for _, nextFile := range allFiles {
+									if nextFile.IsDir() {
+										//filepath.Join(absPinDir, nextFile.Name())
+										putApplyVersions = append(putApplyVersions, nextFile.Name())
+									}
+								}
+
+								matchingVersions := GetMatchingVersions(pin.Version, putApplyVersions)
+								if len(matchingVersions) > 0 {
+									logger.Debugf("Found matching versions: %s", matchingVersions)
+									pin.ApiMsg = fmt.Sprintf("Local PUT apply cache matches these versions %s :: %s -- IGNORING FAILURE -- %s", matchingVersions, absPinDir, pin.ApiMsg)
+									pins[pinIndex] = pin
+								} else {
+									logger.Debugf("Cannot verify pin using local apply %s", pin)
+								}
+							} else {
+								logger.Debugf("Error listing files in directory %s: %s", absPinDir, err)
+							}
+						}
+					} else {
+						logger.Debugf("Cannot verify pin using local apply %s: %s", pin, err)
+					}
+				} else {
+					logger.Debugf("Cannot verify pin using local apply %s: %s", pin, err)
+				}
+			}
+		}
+
+		pinsToApply[pinFile] = pins
+	}
+
+	return pinsToApply
 }

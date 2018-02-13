@@ -20,7 +20,7 @@ cr status -- show list of files that have been added to be processed
 cr diff -- what is changing compared to the CodeRockIt source since the last commit for files that have been added
            this shows diffs for both crget and crput -- you have a unique identifier that never changes
 			and a HASH and a human
-			readable version number vN.N.N (semver)
+			readable version number N.N.N (semver)
 cr apply -m "comment" -- process the files that were added and save the changes locally (this step prompts the user
               for input for each CodeRockIt crput directive to collect a comment for the change and a license
 			   unless those are listed with the CodeRockIt directive)

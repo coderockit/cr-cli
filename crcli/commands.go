@@ -17,7 +17,7 @@ func AddPaths(args cli.Args) {
 	pinsToApply := ReadInPinsToApply()
 	logger.Debugf("Found existing pins to apply: %s", pinsToApply)
 
-	// loop over all of args scanning for cr* directives
+	// loop over all of args scanning for pin directives
 	for index, addPath := range args {
 		abs, err := filepath.Abs(addPath)
 		if err == nil {
@@ -29,6 +29,7 @@ func AddPaths(args cli.Args) {
 		}
 	}
 
+	pinsToApply = VerifyGetPinsAgainstLocalPutPins(pinsToApply)
 	SavePinsToApply(pinsToApply)
 }
 
@@ -65,13 +66,13 @@ func ShowStatus(args cli.Args, diffs bool) {
 	fmt.Println("======================================================" +
 		"======================================================" +
 		"============================================================")
-	for filepath := range pinsToApply {
-		// fmt.Printf("key[%s] value[%s]\n", filepath, pinsToApply[filepath])
-		//if strings.Contains(filepath, abs) {
-		//	delete(pinsToApply, filepath)
+	for pinFile := range pinsToApply {
+		// fmt.Printf("key[%s] value[%s]\n", pinFile, pinsToApply[pinFile])
+		//if strings.Contains(pinFile, abs) {
+		//	delete(pinsToApply, pinFile)
 		//}
-		fmt.Printf("** %s\n", filepath)
-		pins := pinsToApply[filepath]
+		fmt.Printf("** %s\n", pinFile)
+		pins := pinsToApply[pinFile]
 		for _, pin := range pins {
 			if strings.HasPrefix(pin.ApiMsg, "Success") {
 				fmt.Printf("   -- Ready to apply version: '%s'\n", pin.ApplyVersion)
@@ -80,12 +81,12 @@ func ShowStatus(args cli.Args, diffs bool) {
 				fmt.Printf("   -- Cannot apply version: '%s'\n", pin.ApplyVersion)
 				fmt.Printf("      ==> %s\n", pin)
 			}
-			fmt.Printf("      >> Api message %s\n", pin.ApiMsg)
+			fmt.Printf("      >> Api message ==> %s\n", pin.ApiMsg)
 			//logger.Debugf("Showing diffs: %s", strconv.FormatBool(diffs))
 			if diffs {
-				if pin.Verb == "PUT" || pin.Verb == "PUTPRIVATE" {
+				if pin.IsPut() {
 					fmt.Print(ReadPinContentToPut(pin))
-				} else if pin.Verb == "GET" {
+				} else if pin.IsGet() {
 					fmt.Print(ReadPinContentToGet(pin))
 				}
 			}
