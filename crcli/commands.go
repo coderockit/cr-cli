@@ -2,6 +2,7 @@ package crcli
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 
@@ -58,6 +59,7 @@ func EmptyPinsToApply(args cli.Args) {
 }
 
 func ShowStatus(args cli.Args, diffs bool) {
+	//logger := loggo.GetLogger("coderockit.cli.cmds")
 	pinsToApply := ReadInPinsToApply()
 
 	fmt.Println("======================================================" +
@@ -72,15 +74,37 @@ func ShowStatus(args cli.Args, diffs bool) {
 		pins := pinsToApply[filepath]
 		for _, pin := range pins {
 			if strings.HasPrefix(pin.ApiMsg, "Success") {
-				fmt.Printf("   -- Ready to apply version %s\n", pin.ApplyVersion)
+				fmt.Printf("   -- Ready to apply version: '%s'\n", pin.ApplyVersion)
 				fmt.Printf("      ==> %s\n", pin)
 			} else {
-				fmt.Printf("   -- Cannot apply %s\n", pin)
+				fmt.Printf("   -- Cannot apply version: '%s'\n", pin.ApplyVersion)
+				fmt.Printf("      ==> %s\n", pin)
 			}
 			fmt.Printf("      >> Api message %s\n", pin.ApiMsg)
+			//logger.Debugf("Showing diffs: %s", strconv.FormatBool(diffs))
+			if diffs {
+				if pin.Verb == "PUT" || pin.Verb == "PUTPRIVATE" {
+					fmt.Print(ReadPinContentToPut(pin))
+				} else if pin.Verb == "GET" {
+					fmt.Print(ReadPinContentToGet(pin))
+				}
+			}
 		}
 		fmt.Println("======================================================" +
 			"======================================================" +
 			"============================================================")
+	}
+}
+
+func ShowConfig(args cli.Args) {
+	logger := loggo.GetLogger("coderockit.cli.cmds")
+	// read in the config file and write it out to the console
+	filename, _ := GetConfigFilename()
+	fmt.Printf("Using config file: %s\n", filename)
+	config, err := ioutil.ReadFile(filename)
+	if err == nil {
+		fmt.Printf("%s", config)
+	} else {
+		logger.Debugf("Error reading file %s: %s", filename, err)
 	}
 }

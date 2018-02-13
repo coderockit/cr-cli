@@ -120,8 +120,9 @@ func main() {
 			Usage:   "Show the configuration in the coderockit.json file",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				logger := loggo.GetLogger("coderockit.cli.main")
-				logger.Debugf("config is: %s", "need to implement")
+				//logger := loggo.GetLogger("coderockit.cli.main")
+				//logger.Debugf("config is: %s", "need to implement")
+				crcli.ShowConfig(c.Args())
 				return nil
 			},
 		},

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -136,7 +137,7 @@ func ScanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if i := bytes.IndexByte(data, '\n'); i >= 0 {
 		// We have a full newline-terminated line.
 		//return i + 1, dropCR(data[0:i]), nil
-		return i + 2, data[0 : i+1], nil
+		return i + 1, data[:i+1], nil
 	}
 	// If we're at EOF, we have a final, non-terminated line. Return it.
 	if atEOF {
@@ -241,6 +242,27 @@ func GetPins(filepath string) []Pin {
 
 	//logger.Debugf("!!!!Got pins: %s", pins)
 	return pins
+}
+
+func ReadPinContentToGet(pin Pin) string {
+	return "content\n"
+}
+
+func ReadPinContentToPut(pin Pin) string {
+	logger := loggo.GetLogger("coderockit.cli.fileio")
+	contentDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
+	if pin.ApplyVersion != "" {
+		pinContentFile := filepath.Join(contentDir, "pinContent.pin")
+		pinContent, err := ioutil.ReadFile(pinContentFile)
+		if err == nil {
+			fmt.Printf("      >> Content from: %s\n", pinContentFile)
+			return string(pinContent)
+		} else {
+			logger.Debugf("Error reading file %s: %s", pinContentFile, err)
+			return fmt.Sprintf("%s", err)
+		}
+	}
+	return "No pin applyVersion!!"
 }
 
 func WritePinContentToApply(pin Pin, pinContent string) {
