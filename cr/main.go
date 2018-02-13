@@ -126,6 +126,28 @@ func main() {
 				return nil
 			},
 		},
+		{
+			Name:    "perms",
+			Aliases: []string{"p"},
+			Usage:   "Grant/Remove/Modify permissions for users in groups and pins you manage",
+			Action: func(c *cli.Context) error {
+				crcli.LoadConfiguration(configDir)
+				logger := loggo.GetLogger("coderockit.cli.main")
+				logger.Debugf("grant/remove/modify perms: %s", "need to implement")
+				return nil
+			},
+		},
+		{
+			Name:    "mesg",
+			Aliases: []string{"m"},
+			Usage:   "Send a message to users who are members of your same groups and pins OR request access to a group or pin",
+			Action: func(c *cli.Context) error {
+				crcli.LoadConfiguration(configDir)
+				logger := loggo.GetLogger("coderockit.cli.main")
+				logger.Debugf("send messages: %s", "need to implement")
+				return nil
+			},
+		},
 	}
 
 	//	app.Action = func(c *cli.Context) error {
