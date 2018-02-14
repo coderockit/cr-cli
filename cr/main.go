@@ -109,8 +109,9 @@ func main() {
 			Usage:   "Apply the changes for files that have been added and then remove the pins that were applied successfully",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				logger := loggo.GetLogger("coderockit.cli.main")
-				logger.Debugf("apply changes: %s", "need to implement")
+				//logger := loggo.GetLogger("coderockit.cli.main")
+				//logger.Debugf("apply changes: %s", "need to implement")
+				crcli.ApplyPins(c.Args())
 				return nil
 			},
 		},

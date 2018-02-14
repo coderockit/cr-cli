@@ -33,6 +33,35 @@ func AddPaths(args cli.Args) {
 	SavePinsToApply(pinsToApply)
 }
 
+func ApplyPins(args cli.Args) {
+	logger := loggo.GetLogger("coderockit.cli.cmds")
+	//logger.Debugf("added file: %s", args.First())
+
+	pinsToApply := ReadInPinsToApply()
+	//logger.Debugf("Found existing pins to apply: %s", pinsToApply)
+
+	for pinFile := range pinsToApply {
+		logger.Debugf("Applying pins in file: %s\n", pinFile)
+		pins := pinsToApply[pinFile]
+		var failedPins []Pin
+		for _, pin := range pins {
+			pin = ApplyPin(pin)
+			//logger.Debugf("pin.ApiMsg: %s", pin.ApiMsg)
+			if !strings.HasPrefix(pin.ApiMsg, "Success") {
+				failedPins = append(failedPins, pin)
+			}
+		}
+
+		if len(failedPins) > 0 {
+			pinsToApply[pinFile] = failedPins
+		} else {
+			delete(pinsToApply, pinFile)
+		}
+	}
+
+	SavePinsToApply(pinsToApply)
+}
+
 func RemovePaths(args cli.Args) {
 	logger := loggo.GetLogger("coderockit.cli.cmds")
 

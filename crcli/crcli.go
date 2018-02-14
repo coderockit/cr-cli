@@ -153,10 +153,11 @@ func verifyPin(pin Pin, pinContent string) Pin {
 		}
 
 		if err == nil {
-			WritePinContentToApply(pin, pinContent)
 			break
 		}
 	}
+
+	WritePinContentToApply(pin, pinContent)
 
 	return pin
 }
@@ -181,9 +182,21 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 				pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
 			}
 		} else {
-			myerr = errors.New(string(resp.StatusCode()))
-			respBody := string(resp.Body())
-			pin.ApiMsg = fmt.Sprintf("Fatal %d: verification failed with error: %s", resp.StatusCode(), respBody)
+			respBody := resp.Body()
+			var respObj interface{}
+			err := json.Unmarshal(respBody, &respObj)
+			if err == nil {
+				respMap := respObj.(map[string]interface{})
+				logger.Debugf("Reponse from verifying pin with unmarshalled object: %s", respMap)
+				pin.ApplyVersion = respMap["applyVersion"].(string)
+				pin.ApiMsg = fmt.Sprintf("Fatal %d: verification failed with error: %s", resp.StatusCode(), respBody)
+				myerr = errors.New(string(resp.StatusCode()))
+			} else {
+				logger.Debugf("Error unmarshalling json in response %s: %s", respBody, err)
+				pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
+			}
+			//respBody := string(resp.Body())
+			//pin.ApiMsg = fmt.Sprintf("Fatal %d: verification failed with error: %s", resp.StatusCode(), respBody)
 		}
 	} else {
 		myerr = err
@@ -205,6 +218,10 @@ func GetMatchingVersions(requirement string, versions []string) []string {
 	}
 
 	if matchingVersions == nil {
+
+		if ConfBool("apiAllowInsecure", false) {
+			resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+		}
 
 		apiURLs := ConfStringSlice("apiURLs", []string{"https://coderockit.io/api/v1"})
 		for tokIndex, apiURL := range apiURLs {
@@ -252,4 +269,57 @@ func GetMatchingVersions(requirement string, versions []string) []string {
 	}
 
 	return matchingVersions
+}
+
+func ApplyPin(pin Pin) Pin {
+	logger := loggo.GetLogger("coderockit.cli.crcli")
+
+	logger.Debugf("Applying pin %s", pin)
+	/*
+		//resty.SetProxy("http://127.0.0.1:8080")
+		//logger.Debugf("The apiAllowInsecure flag is: %b", ConfBool("apiAllowInsecure", false))
+		if ConfBool("apiAllowInsecure", false) {
+			resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+		}
+
+		//need to read in pinContent from apply cache
+
+		apiURLs := ConfStringSlice("apiURLs", []string{"https://coderockit.io/api/v1"})
+		for tokIndex, apiURL := range apiURLs {
+			applyURL := getVerifyPinURI(apiURL, pin)
+			logger.Debugf("applying %s pin with URL: %s", pin.Verb, applyURL)
+
+			var err error
+			if pin.IsGet() {
+				resp, err := resty.R().
+					SetHeader("Accept", "application/json").
+					SetAuthToken(GetApiAccessToken(tokIndex)).
+					Get(applyURL)
+
+				// The response should contain at most the last three
+				// versions of this pin, if empty then there was an error
+				// trying to GET this pin - the ApiMsg explains why
+
+				pin, err = handleVerifyPinResponse(pin, err, resp)
+			} else if pin.IsPut() {
+				resp, err := resty.R().
+					SetHeader("Accept", "application/json").
+					SetAuthToken(GetApiAccessToken(tokIndex)).
+					SetBody(pinContent).
+					Put(applyURL)
+
+				// The response should contain at most the last three
+				// versions of this pin, if empty then there was an error
+				// trying to PUT this pin - the ApiMsg explains why
+
+				pin, err = handleVerifyPinResponse(pin, err, resp)
+			}
+
+			if err == nil {
+				break
+			}
+		}
+	*/
+
+	return pin
 }

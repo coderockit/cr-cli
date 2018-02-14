@@ -262,7 +262,7 @@ func ReadPinContentToPut(pin Pin) string {
 			return fmt.Sprintf("%s", err)
 		}
 	}
-	return "No pin applyVersion!!"
+	return "For PUT no pin applyVersion, cannot read content!!"
 }
 
 func WritePinContentToApply(pin Pin, pinContent string) {
@@ -284,6 +284,8 @@ func WritePinContentToApply(pin Pin, pinContent string) {
 		} else {
 			logger.Debugf("Cannot create the %s directory: %s", contentDir, err)
 		}
+	} else {
+		logger.Debugf("Fatal: for PUT no pin applyVersion, losing content %s:\n%s", pin, pinContent)
 	}
 }
 
