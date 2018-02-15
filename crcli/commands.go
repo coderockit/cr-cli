@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/loggo"
 	"gopkg.in/urfave/cli.v1"
@@ -34,28 +33,56 @@ func AddPaths(args cli.Args) {
 }
 
 func ApplyPins(args cli.Args) {
-	logger := loggo.GetLogger("coderockit.cli.cmds")
+	//logger := loggo.GetLogger("coderockit.cli.cmds")
 	//logger.Debugf("added file: %s", args.First())
 
 	pinsToApply := ReadInPinsToApply()
 	//logger.Debugf("Found existing pins to apply: %s", pinsToApply)
 
-	for pinFile := range pinsToApply {
-		logger.Debugf("Applying pins in file: %s\n", pinFile)
-		pins := pinsToApply[pinFile]
-		var failedPins []Pin
-		for _, pin := range pins {
-			pin = ApplyPin(pin)
-			//logger.Debugf("pin.ApiMsg: %s", pin.ApiMsg)
-			if !strings.HasPrefix(pin.ApiMsg, "Success") {
-				failedPins = append(failedPins, pin)
+	onlyDoPuts := true
+	for {
+		for pinFile := range pinsToApply {
+			//logger.Debugf("Applying pins in file: %s\n", pinFile)
+			pins := pinsToApply[pinFile]
+			var failedPins []Pin
+			for _, pin := range pins {
+				if (onlyDoPuts && pin.IsPut()) || (!onlyDoPuts && pin.IsGet()) {
+
+					pinContent := ""
+					//pinContentFile := ""
+					if pin.IsPut() {
+						_, pinContent = ReadPinContentToPut(pin)
+					} else if pin.IsGet() {
+						_, pinContent = ReadPinContentToGet(pin)
+					}
+					pin = verifyPin(pin, pinContent, true)
+
+					//logger.Debugf("pin.ApiMsg: %s", pin.ApiMsg)
+					if pin.ApiSuccess() {
+						if pin.IsPut() {
+							FinishApplyingPut(pin)
+						} else if pin.IsGet() {
+							FinishApplyingGet(pinFile, pin)
+						}
+					} else {
+						failedPins = append(failedPins, pin)
+					}
+				} else {
+					failedPins = append(failedPins, pin)
+				}
+			}
+
+			if len(failedPins) > 0 {
+				pinsToApply[pinFile] = failedPins
+			} else {
+				delete(pinsToApply, pinFile)
 			}
 		}
 
-		if len(failedPins) > 0 {
-			pinsToApply[pinFile] = failedPins
+		if !onlyDoPuts {
+			break
 		} else {
-			delete(pinsToApply, pinFile)
+			onlyDoPuts = false
 		}
 	}
 
@@ -84,8 +111,8 @@ func RemovePaths(args cli.Args) {
 }
 
 func EmptyPinsToApply(args cli.Args) {
-	pinsToApplyPath := GetWorkDirectory() + "/pinsToApply.json"
-	DeleteFile(pinsToApplyPath)
+	DeleteFileOrDir(GetPinsToApplyFile())
+	DeleteDirectoryRecursively(GetApplyDirectory())
 }
 
 func ShowStatus(args cli.Args, diffs bool) {
@@ -103,7 +130,7 @@ func ShowStatus(args cli.Args, diffs bool) {
 		fmt.Printf("** %s\n", pinFile)
 		pins := pinsToApply[pinFile]
 		for _, pin := range pins {
-			if strings.HasPrefix(pin.ApiMsg, "Success") {
+			if pin.ApiSuccess() {
 				fmt.Printf("   -- Ready to apply version: '%s'\n", pin.ApplyVersion)
 				fmt.Printf("      ==> %s\n", pin)
 			} else {
@@ -114,9 +141,13 @@ func ShowStatus(args cli.Args, diffs bool) {
 			//logger.Debugf("Showing diffs: %s", strconv.FormatBool(diffs))
 			if diffs {
 				if pin.IsPut() {
-					fmt.Print(ReadPinContentToPut(pin))
+					pinContentFile, pinContent := ReadPinContentToPut(pin)
+					fmt.Printf("      >> Content from: %s\n", pinContentFile)
+					fmt.Print(pinContent)
 				} else if pin.IsGet() {
-					fmt.Print(ReadPinContentToGet(pin))
+					pinContentFile, pinContent := ReadPinContentToGet(pin)
+					fmt.Printf("      >> Content from: %s\n", pinContentFile)
+					fmt.Print(pinContent)
 				}
 			}
 		}
@@ -145,5 +176,13 @@ func ShowConfig(args cli.Args) {
 		fmt.Printf("%s", config)
 	} else {
 		logger.Debugf("Error reading file %s: %s", filename, err)
+	}
+}
+
+func CalculateHash(args cli.Args) {
+	fileContents, err := ioutil.ReadFile(args[0])
+	if err == nil {
+		hash := Hash(string(fileContents))
+		fmt.Printf("%s\n", hash)
 	}
 }

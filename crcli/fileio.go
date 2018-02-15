@@ -18,7 +18,7 @@ func SavePinsToApply(pinsToApply Pinmap) {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	//logger.Debugf("Saving pins to apply: %s", pinsToApply)
 
-	pinsToApplyPath := filepath.Join(GetWorkDirectory(), "pinsToApply.json")
+	pinsToApplyPath := GetPinsToApplyFile()
 	jsonString, err := json.Marshal(pinsToApply)
 	if err == nil {
 		//logger.Debugf("JSON to save: %s", jsonString)
@@ -39,7 +39,7 @@ func ReadInPinsToApply() Pinmap {
 
 	pinsToApply := make(Pinmap)
 
-	pinsToApplyPath := filepath.Join(GetWorkDirectory(), "pinsToApply.json")
+	pinsToApplyPath := GetPinsToApplyFile()
 	jsonString, err := ioutil.ReadFile(pinsToApplyPath)
 	if err == nil {
 		err := json.Unmarshal(jsonString, &pinsToApply)
@@ -53,12 +53,21 @@ func ReadInPinsToApply() Pinmap {
 	return pinsToApply
 }
 
-func DeleteFile(pathToFile string) {
+func DeleteDirectoryRecursively(pathToDir string) {
+	logger := loggo.GetLogger("coderockit.cli.fileio")
+	err := os.RemoveAll(pathToDir)
+
+	if err != nil {
+		logger.Debugf("Error deleting directory: %s", err)
+	}
+}
+
+func DeleteFileOrDir(pathToFile string) {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
 	err := os.Remove(pathToFile)
 
 	if err != nil {
-		logger.Debugf("Error deleting file: %s", err)
+		logger.Debugf("Error deleting file or directory: %s", err)
 	}
 }
 
@@ -216,7 +225,7 @@ func GetPins(pinFile string) []Pin {
 				//logger.Debugf("ENDGET matches is %d for string: %s", len(matches), scanStr)
 				if foundPinStr != "" {
 					newPin := NewPin(httpVerb, foundPinStr)
-					newPin = verifyPin(newPin, pinContent)
+					newPin = verifyPin(newPin, pinContent, false)
 					//logger.Debugf("Got pins: %s", pins)
 					pins = append(pins, newPin)
 					//logger.Debugf("Got pins: %s", pins)
@@ -244,30 +253,34 @@ func GetPins(pinFile string) []Pin {
 	return pins
 }
 
-func ReadPinContentToGet(pin Pin) string {
-	return "content\n"
-}
-
-func ReadPinContentToPut(pin Pin) string {
+func ReadPinContent(rootPath string, pin Pin) (string, string) {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
-	contentDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
+	contentDir := filepath.Join(rootPath, pin.GroupName, pin.Name, pin.ApplyVersion)
 	if pin.ApplyVersion != "" {
 		pinContentFile := filepath.Join(contentDir, "pinContent.pin")
 		pinContent, err := ioutil.ReadFile(pinContentFile)
 		if err == nil {
-			fmt.Printf("      >> Content from: %s\n", pinContentFile)
-			return string(pinContent)
+			//fmt.Printf("      >> Content from: %s\n", pinContentFile)
+			return pinContentFile, string(pinContent)
 		} else {
-			logger.Debugf("Error reading file %s: %s", pinContentFile, err)
-			return fmt.Sprintf("%s", err)
+			logger.Debugf("Error reading file %s: %s\n", pinContentFile, err)
+			return pinContentFile, fmt.Sprintf("%s\n", err)
 		}
 	}
-	return "For PUT no pin applyVersion, cannot read content!!"
+	return contentDir, fmt.Sprintf("For %s no pin applyVersion, cannot read content!!\n", pin.Verb)
 }
 
-func WritePinContentToApply(pin Pin, pinContent string) {
+func ReadPinContentToGet(pin Pin) (string, string) {
+	return ReadPinContent(GetHomeCacheDirectory(), pin)
+}
+
+func ReadPinContentToPut(pin Pin) (string, string) {
+	return ReadPinContent(GetApplyDirectory(), pin)
+}
+
+func WritePinContent(rootPath string, pin Pin, pinContent string) {
 	logger := loggo.GetLogger("coderockit.cli.fileio")
-	contentDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
+	contentDir := filepath.Join(rootPath, pin.GroupName, pin.Name, pin.ApplyVersion)
 	if pin.ApplyVersion != "" {
 		if err := os.MkdirAll(contentDir, os.ModePerm); err == nil {
 			pinContentFile := filepath.Join(contentDir, "pinContent.pin")
@@ -285,8 +298,16 @@ func WritePinContentToApply(pin Pin, pinContent string) {
 			logger.Debugf("Cannot create the %s directory: %s", contentDir, err)
 		}
 	} else {
-		logger.Debugf("Fatal: for PUT no pin applyVersion, losing content %s:\n%s", pin, pinContent)
+		logger.Debugf("Fatal: for %s no pin applyVersion, content NOT saved %s:\n%s", pin.Verb, pin, pinContent)
 	}
+}
+
+func WritePinContentToApply(pin Pin, pinContent string) {
+	WritePinContent(GetApplyDirectory(), pin, pinContent)
+}
+
+func WritePinApiContentToCache(pin Pin, pinContent string) {
+	WritePinContent(GetHomeCacheDirectory(), pin, pinContent)
 }
 
 func VerifyGetPinsAgainstLocalPutPins(pinsToApply Pinmap) Pinmap {
@@ -295,7 +316,7 @@ func VerifyGetPinsAgainstLocalPutPins(pinsToApply Pinmap) Pinmap {
 	for pinFile := range pinsToApply {
 		pins := pinsToApply[pinFile]
 		for pinIndex, pin := range pins {
-			if pin.IsGet() {
+			if pin.IsGet() && !pin.ApiSuccess() {
 				// now look in the local ./.coderockit/apply folder to see if
 				// a local unapplied pin will match the groupName/pinName/version
 				// and if it does then update the pin.ApiMsg to inform the user
@@ -344,4 +365,12 @@ func VerifyGetPinsAgainstLocalPutPins(pinsToApply Pinmap) Pinmap {
 	}
 
 	return pinsToApply
+}
+
+func FinishApplyingPut(pin Pin) {
+	// remove content out of apply cache for PUT
+}
+
+func FinishApplyingGet(pinFile string, pin Pin) {
+	// for GET, put content into applicable file of the project
 }

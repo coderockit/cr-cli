@@ -112,6 +112,10 @@ func GetApplyDirectory() string {
 	return filepath.Join(".", codeRockItWorkDirName, "apply")
 }
 
+func GetPinsToApplyFile() string {
+	return filepath.Join(".", codeRockItWorkDirName, "pinsToApply.json")
+}
+
 func GetConfigFilename() (string, error) {
 	return viper.GetConfigFile()
 }

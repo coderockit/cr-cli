@@ -149,6 +149,18 @@ func main() {
 				return nil
 			},
 		},
+		{
+			Name:    "hash",
+			Aliases: []string{"x"},
+			Usage:   "Calculate the SHA-512 hash of the content in a given file",
+			Action: func(c *cli.Context) error {
+				crcli.LoadConfiguration(configDir)
+				//logger := loggo.GetLogger("coderockit.cli.main")
+				//logger.Debugf("calculate hash: %s", "need to implement")
+				crcli.CalculateHash(c.Args())
+				return nil
+			},
+		},
 	}
 
 	//	app.Action = func(c *cli.Context) error {

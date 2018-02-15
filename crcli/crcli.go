@@ -39,6 +39,10 @@ func (p Pin) IsPut() bool {
 	return strings.Contains(p.Verb, "PUT")
 }
 
+func (p Pin) ApiSuccess() bool {
+	return strings.HasPrefix(p.ApiMsg, "Success")
+}
+
 // The CodeRockIt pinmap type -- map file paths to their contained pins
 type Pinmap map[string][]Pin
 
@@ -109,7 +113,7 @@ func getVerifyPinURI(apiURL string, pin Pin) string {
 	return ""
 }
 
-func verifyPin(pin Pin, pinContent string) Pin {
+func verifyPin(pin Pin, pinContent string, sendContent bool) Pin {
 	logger := loggo.GetLogger("coderockit.cli.crcli")
 
 	//resty.SetProxy("http://127.0.0.1:8080")
@@ -139,10 +143,15 @@ func verifyPin(pin Pin, pinContent string) Pin {
 
 			pin, err = handleVerifyPinResponse(pin, err, resp)
 		} else if pin.IsPut() {
+			contentToSend := pinContent
+			if !sendContent {
+				contentToSend = ""
+			}
 			resp, err := resty.R().
 				SetHeader("Accept", "application/json").
 				SetAuthToken(GetApiAccessToken(tokIndex)).
-				SetBody("").
+				SetHeader("Content-Type", "application/octet-stream").
+				SetBody(contentToSend).
 				Put(verifyURL)
 
 			// The response should contain at most the last three
@@ -157,7 +166,9 @@ func verifyPin(pin Pin, pinContent string) Pin {
 		}
 	}
 
-	WritePinContentToApply(pin, pinContent)
+	if pin.IsPut() {
+		WritePinContentToApply(pin, pinContent)
+	}
 
 	return pin
 }
@@ -174,11 +185,15 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 			err := json.Unmarshal(respBody, &respObj)
 			if err == nil {
 				respMap := respObj.(map[string]interface{})
-				logger.Debugf("Reponse from verifying pin with unmarshalled object: %s", respMap)
+				logger.Debugf("Reponse from verifying pin with CORRECT object: %s", respMap)
 				pin.ApplyVersion = respMap["applyVersion"].(string)
-				pin.ApiMsg = fmt.Sprintf("Success: %s", respBody)
+				pin.ApiMsg = fmt.Sprintf("Success: %s", respMap["message"].(string))
+				if pin.IsGet() {
+					pin.Hash = respMap["hash"].(string)
+					WritePinApiContentToCache(pin, respMap["content"].(string))
+				}
 			} else {
-				logger.Debugf("Error unmarshalling json in response %s: %s", respBody, err)
+				logger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
 				pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
 			}
 		} else {
@@ -187,12 +202,12 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 			err := json.Unmarshal(respBody, &respObj)
 			if err == nil {
 				respMap := respObj.(map[string]interface{})
-				logger.Debugf("Reponse from verifying pin with unmarshalled object: %s", respMap)
+				logger.Debugf("Reponse from verifying pin with CORRECT object: %s", respMap)
 				pin.ApplyVersion = respMap["applyVersion"].(string)
 				pin.ApiMsg = fmt.Sprintf("Fatal %d: verification failed with error: %s", resp.StatusCode(), respBody)
 				myerr = errors.New(string(resp.StatusCode()))
 			} else {
-				logger.Debugf("Error unmarshalling json in response %s: %s", respBody, err)
+				logger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
 				pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
 			}
 			//respBody := string(resp.Body())
@@ -227,7 +242,7 @@ func GetMatchingVersions(requirement string, versions []string) []string {
 		for tokIndex, apiURL := range apiURLs {
 
 			matchingVersionsURL := apiURL + "/matchingVersions/" + url.PathEscape(requirement) + "/" +
-				url.PathEscape(fmt.Sprintf("%s", versions))
+				url.PathEscape(strings.Join(versions, ","))
 
 			logger.Debugf("Getting matching versions '%s' using URL: %s", versions, matchingVersionsURL)
 
@@ -248,13 +263,13 @@ func GetMatchingVersions(requirement string, versions []string) []string {
 							matchingVersions = append(matchingVersions, fmt.Sprintf("%s", respVer))
 						}
 
-						logger.Debugf("Response from get matching versions unmarshalled object: %s", respMap)
+						logger.Debugf("Response from get matching versions CORRECT object: %s", respMap)
 
 						if matchingVersions != nil {
 							break
 						}
 					} else {
-						logger.Debugf("Error unmarshalling json in response %s: %s", respBody, err)
+						logger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
 						//pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
 					}
 				} else {
@@ -269,57 +284,4 @@ func GetMatchingVersions(requirement string, versions []string) []string {
 	}
 
 	return matchingVersions
-}
-
-func ApplyPin(pin Pin) Pin {
-	logger := loggo.GetLogger("coderockit.cli.crcli")
-
-	logger.Debugf("Applying pin %s", pin)
-	/*
-		//resty.SetProxy("http://127.0.0.1:8080")
-		//logger.Debugf("The apiAllowInsecure flag is: %b", ConfBool("apiAllowInsecure", false))
-		if ConfBool("apiAllowInsecure", false) {
-			resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-		}
-
-		//need to read in pinContent from apply cache
-
-		apiURLs := ConfStringSlice("apiURLs", []string{"https://coderockit.io/api/v1"})
-		for tokIndex, apiURL := range apiURLs {
-			applyURL := getVerifyPinURI(apiURL, pin)
-			logger.Debugf("applying %s pin with URL: %s", pin.Verb, applyURL)
-
-			var err error
-			if pin.IsGet() {
-				resp, err := resty.R().
-					SetHeader("Accept", "application/json").
-					SetAuthToken(GetApiAccessToken(tokIndex)).
-					Get(applyURL)
-
-				// The response should contain at most the last three
-				// versions of this pin, if empty then there was an error
-				// trying to GET this pin - the ApiMsg explains why
-
-				pin, err = handleVerifyPinResponse(pin, err, resp)
-			} else if pin.IsPut() {
-				resp, err := resty.R().
-					SetHeader("Accept", "application/json").
-					SetAuthToken(GetApiAccessToken(tokIndex)).
-					SetBody(pinContent).
-					Put(applyURL)
-
-				// The response should contain at most the last three
-				// versions of this pin, if empty then there was an error
-				// trying to PUT this pin - the ApiMsg explains why
-
-				pin, err = handleVerifyPinResponse(pin, err, resp)
-			}
-
-			if err == nil {
-				break
-			}
-		}
-	*/
-
-	return pin
 }
