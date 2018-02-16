@@ -45,7 +45,7 @@ func ApplyPins(args cli.Args) {
 		for pinFile := range pinsToApply {
 			//CmdsLogger.Debugf("Applying pins in file: %s\n", pinFile)
 			pins := pinsToApply[pinFile]
-			var failedPins []Pin
+			var appliedPins []Pin
 			for _, pin := range pins {
 				if (onlyDoPuts && pin.IsPut()) || (!onlyDoPuts && pin.IsGet()) {
 
@@ -58,26 +58,28 @@ func ApplyPins(args cli.Args) {
 					}
 					pin = verifyPin(pin, pinContent, true)
 
-					//CmdsLogger.Debugf("pin.ApiMsg: %s", pin.ApiMsg)
+					CmdsLogger.Debugf("pin.ApiMsg: %s", pin.ApiMsg)
 					if pin.ApiSuccess() {
+						appliedPins = append(appliedPins, pin)
 						if pin.IsPut() {
 							FinishApplyingPut(pin)
 						} else if pin.IsGet() {
 							FinishApplyingGet(pinFile, pin)
 						}
 					} else {
-						failedPins = append(failedPins, pin)
+						appliedPins = append(appliedPins, pin)
 					}
 				} else {
-					failedPins = append(failedPins, pin)
+					appliedPins = append(appliedPins, pin)
 				}
 			}
 
-			if len(failedPins) > 0 {
-				pinsToApply[pinFile] = failedPins
-			} else {
-				delete(pinsToApply, pinFile)
-			}
+			pinsToApply[pinFile] = appliedPins
+			//if len(failedPins) > 0 {
+			//	pinsToApply[pinFile] = failedPins
+			//} else {
+			//	delete(pinsToApply, pinFile)
+			//}
 		}
 
 		if !onlyDoPuts {

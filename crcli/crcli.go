@@ -172,14 +172,14 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 
 	var myerr error
 	if err == nil {
-		CrcliLogger.Debugf("resonse status code: %d", resp.StatusCode())
+		//CrcliLogger.Debugf("Response status code: %d", resp.StatusCode())
 		if resp.StatusCode() == 200 {
 			respBody := resp.Body()
 			var respObj interface{}
 			err := json.Unmarshal(respBody, &respObj)
 			if err == nil {
 				respMap := respObj.(map[string]interface{})
-				CrcliLogger.Debugf("Reponse from verifying pin with CORRECT object: %s", respMap)
+				CrcliLogger.Debugf("%d response from verifying pin with CORRECT object: %s", resp.StatusCode(), respMap)
 				pin.ApplyVersion = respMap["applyVersion"].(string)
 				pin.ApiMsg = fmt.Sprintf("Success: %s", respMap["message"].(string))
 				if pin.IsGet() {
@@ -196,7 +196,7 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 			err := json.Unmarshal(respBody, &respObj)
 			if err == nil {
 				respMap := respObj.(map[string]interface{})
-				CrcliLogger.Debugf("Reponse from verifying pin with CORRECT object: %s", respMap)
+				CrcliLogger.Debugf("%d response from verifying pin with CORRECT object: %s", resp.StatusCode(), respMap)
 				pin.ApplyVersion = respMap["applyVersion"].(string)
 				pin.ApiMsg = fmt.Sprintf("Fatal %d: verification failed with error: %s", resp.StatusCode(), respBody)
 				myerr = errors.New(string(resp.StatusCode()))

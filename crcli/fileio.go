@@ -374,13 +374,13 @@ func GetEndingPath(fullPath string, startingPath string) string {
 }
 
 func FinishApplyingPut(pin Pin) {
-	// remove content out of apply cache for PUT
-	versionDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
-	//fmt.Printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 1) Deleting directory %s\n", versionDir)
-	if pin.ApplyVersion != "" {
-		//fmt.Printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!2) Deleting directory %s\n", versionDir)
-		DeleteDirectoryRecursively(versionDir)
-	}
+	//	// remove content out of apply cache for PUT
+	//	versionDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
+	//	//fmt.Printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 1) Deleting directory %s\n", versionDir)
+	//	if pin.ApplyVersion != "" {
+	//		//fmt.Printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!2) Deleting directory %s\n", versionDir)
+	//		DeleteDirectoryRecursively(versionDir)
+	//	}
 }
 
 func FinishApplyingGet(pinFile string, pin Pin) {
