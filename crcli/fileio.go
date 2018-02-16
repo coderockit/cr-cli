@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -372,6 +373,48 @@ func GetEndingPath(fullPath string, startingPath string) string {
 	return fullPath
 }
 
+// Copy the src file to dst. Any existing file will be overwritten and will not
+// copy file attributes.
+func Copy(src, dst string) error {
+	FileioLogger.Debugf("Copy file from %s to %s", src, dst)
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
+}
+
+//func main() {
+//	from, err := os.Open("./sourcefile.txt")
+//	if err != nil {
+//	  log.Fatal(err)
+//	}
+//	defer from.Close()
+
+//	to, err := os.OpenFile("./sourcefile.copy.txt", os.O_RDWR|os.O_CREATE, 0666)
+//	if err != nil {
+//	  log.Fatal(err)
+//	}
+//	defer to.Close()
+
+//	_, err = io.Copy(to, from)
+//	if err != nil {
+//	  log.Fatal(err)
+//	}
+//}
+
 func FinishApplyingPut(pin Pin) {
 	//	// remove content out of apply cache for PUT
 	//	versionDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
@@ -384,4 +427,145 @@ func FinishApplyingPut(pin Pin) {
 
 func FinishApplyingGet(pinFile string, pin Pin) {
 	// for GET, put content into applicable file of the project
+
+}
+
+//func InsertGetsIntoFileRe(pinFile string, pins []Pin) {
+//	srcPinFile := pinFile
+//	for _, pin := range pins {
+//		if pin.IsGet() && pin.ApiSuccess() && pin.ApplyVersion != "" {
+//			// copy pinFile to a temp location in ./.coderockit
+//			tmpPinDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
+//			err := os.MkdirAll(tmpPinDir, os.ModePerm)
+//			if err == nil {
+//				tmpPinFile := filepath.Join(tmpPinDir, filepath.Base(pinFile))
+//				//err := Copy(srcPinFile, tmpPinFile)
+//				//if err == nil {
+//				if srcPinFile != pinFile {
+//					DeleteFileOrDir(srcPinFile)
+//				}
+//				InsertGetContentIntoFile(srcPinFile, tmpPinFile, pin)
+//				srcPinFile = tmpPinFile
+//				//} else {
+//				//	FileioLogger.Debugf("Failed to copy file from %s to %s\n", srcPinFile, tmpPinFile)
+//				//}
+//			} else {
+//				FileioLogger.Debugf("Failed to create directories %s\n", tmpPinDir)
+//			}
+//		}
+//	}
+
+//	if srcPinFile != pinFile {
+//		DeleteFileOrDir(srcPinFile)
+//	}
+//}
+
+func InsertGetsIntoFile(pinFile string, pins []Pin) {
+	destFilePath := filepath.Join(GetApplyDirectory(), GetEndingPath(pinFile, GetCurrentDirectory()))
+	destDir := filepath.Dir(destFilePath)
+	err := os.MkdirAll(destDir, os.ModePerm)
+	if err != nil {
+		FileioLogger.Debugf("Failed to create directories %s\n", destDir)
+		return
+	}
+
+	FileioLogger.Debugf("Inserting GETs into file: %s", destFilePath)
+	destFile, err := os.OpenFile(destFilePath, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		FileioLogger.Debugf("Failed to open file %s for writing: %s\n", destFilePath, err)
+	}
+	defer destFile.Close()
+	destWriter := bufio.NewWriter(destFile)
+
+	inFile, err := os.Open(pinFile)
+	defer inFile.Close()
+
+	if err == nil {
+		pinScanner := bufio.NewScanner(inFile)
+
+		// NOTE: it may be necessary to pass in a binary friendly Split function
+		pinScanner.Split(ScanLines)
+
+		var crgetRE = regexp.MustCompile(`GET \/pin\/`)
+		var crEndRE = regexp.MustCompile(`ENDPIN`)
+
+		var foundPinStr string = ""
+		//var httpVerb string = ""
+		var pinContent string = ""
+
+		for pinScanner.Scan() {
+			scanStr := pinScanner.Text()
+
+			matches := crgetRE.FindStringSubmatch(scanStr)
+			if len(matches) >= 1 {
+				//pins = append(pins, *NewPin(pinStr))
+				if foundPinStr == "" {
+					foundPinStr = scanStr
+					//destWriter.WriteString(scanStr)
+					//httpVerb = "GET"
+				} else {
+					FileioLogger.Debugf("Last pin failed, your ENDGET is probably incorrect: %s", foundPinStr)
+					break
+				}
+				//FileioLogger.Debugf("GET matches is %d for string: %s", len(matches), foundPinStr)
+			}
+
+			matches = crEndRE.FindStringSubmatch(scanStr)
+			if len(matches) >= 1 {
+				//FileioLogger.Debugf("ENDGET matches is %d for string: %s", len(matches), scanStr)
+				if foundPinStr != "" {
+					getPinContent := GetPinContent(foundPinStr, pins)
+					FileioLogger.Debugf("Writing pin content to file: %s", getPinContent)
+					destWriter.WriteString(getPinContent)
+					//destWriter.WriteString(scanStr)
+					//newPin := NewPin(httpVerb, foundPinStr)
+					//newPin = verifyPin(newPin, pinContent, false)
+					//FileioLogger.Debugf("Got pins: %s", pins)
+					//pins = append(pins, newPin)
+					//FileioLogger.Debugf("Got pins: %s", pins)
+					foundPinStr = ""
+					pinContent = ""
+				}
+			}
+
+			if foundPinStr != "" && scanStr != foundPinStr {
+				pinContent += scanStr
+			} else {
+				destWriter.WriteString(scanStr)
+			}
+
+		}
+
+		if foundPinStr != "" {
+			FileioLogger.Debugf("Last pin failed, your last ENDPUT or ENDGET is probably incorrect: %s", foundPinStr)
+		}
+
+	} else {
+		FileioLogger.Debugf("Error with path %s: %s", pinFile, err)
+	}
+
+	destWriter.Flush()
+	destFile.Close()
+
+	err = Copy(destFilePath, pinFile)
+	if err == nil {
+		DeleteFileOrDir(destFilePath)
+	} else {
+		FileioLogger.Debugf("Failed to copy file from %s to %s: %s\n", destFilePath, pinFile, err)
+	}
+}
+
+func GetPinContent(pinPathFromFile string, pins []Pin) string {
+	pinContent := ""
+
+	for _, pin := range pins {
+		if pin.IsGet() && pin.ApiSuccess() && pin.ApplyVersion != "" {
+			pinPath := fmt.Sprintf("/%s/%s/%s", pin.GroupName, pin.Name, pin.Version)
+			if strings.Index(pinPathFromFile, pinPath) != -1 {
+				_, pinContent = ReadPinContentToGet(pin)
+			}
+		}
+	}
+
+	return pinContent
 }

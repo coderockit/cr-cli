@@ -13,7 +13,7 @@ func Hash(tohash string) string {
 	dk := sha512.Sum512([]byte(tohash))
 	hash := base64.StdEncoding.EncodeToString(dk[:])
 	//hash := string(dk)
-	HashLogger.Debugf("Hash: %s", hash)
+	//HashLogger.Debugf("Hash: %s", hash)
 	return hash
 }
 
