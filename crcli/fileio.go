@@ -111,9 +111,8 @@ func RemovePathFromPins(removePath string, pinsToApply Pinmap) Pinmap {
 				//pins := pinsToApply[pinFile]
 				for _, pin := range pinsToApply[pinFile] {
 					versionDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
-					//fmt.Printf("1) Deleting directory %s\n", versionDir)
 					if pin.ApplyVersion != "" {
-						//fmt.Printf("2) Deleting directory %s\n", versionDir)
+						fmt.Printf("Deleting apply cache content %s\n", versionDir)
 						DeleteDirectoryRecursively(versionDir)
 					}
 				}
