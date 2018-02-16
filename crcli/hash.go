@@ -4,18 +4,16 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"strings"
-
-	"github.com/juju/loggo"
 )
 
 func Hash(tohash string) string {
-	logger := loggo.GetLogger("coderockit.cli.hash")
+	//logger := loggo.GetLogger("coderockit.cli.hash")
 	//[sha512.Size]byte dk = sha512.Sum512([]byte(tohash))
 	//dk := make([sha512.Size]byte, sha512.Size, sha512.Size)
 	dk := sha512.Sum512([]byte(tohash))
 	hash := base64.StdEncoding.EncodeToString(dk[:])
 	//hash := string(dk)
-	logger.Debugf("Hash: %s", hash)
+	HashLogger.Debugf("Hash: %s", hash)
 	return hash
 }
 
@@ -33,10 +31,10 @@ func Hash(tohash string) string {
 
 //	dk, err := scrypt.Key([]byte(tohash), salt, N, r, p, keyLen)
 //	if err != nil {
-//		logger.Criticalf("Error: %s", err)
+//		HashLogger.Criticalf("Error: %s", err)
 //	}
 //	hash := base64.StdEncoding.EncodeToString(dk)
-//	logger.Debugf("Hash: %s", hash)
+//	HashLogger.Debugf("Hash: %s", hash)
 //	return hash
 //}
 

@@ -11,8 +11,13 @@ import (
 	"github.com/juju/loggo"
 )
 
-const codeRockItWorkDirName = ".coderockit"
+const codeRockItDirName = ".coderockit"
 
+var ConfigLogger loggo.Logger
+var CmdsLogger loggo.Logger
+var CrcliLogger loggo.Logger
+var FileioLogger loggo.Logger
+var HashLogger loggo.Logger
 var apiAccessTokens []string
 
 func LoadConfiguration(configDir string) {
@@ -30,62 +35,64 @@ func LoadConfiguration(configDir string) {
 	}
 
 	loggo.ConfigureLoggers(viper.GetString("logger.config"))
-	logger := loggo.GetLogger("coderockit.cli.config")
+	ConfigLogger = loggo.GetLogger("coderockit.cli.config")
+	CmdsLogger = loggo.GetLogger("coderockit.cli.cmds")
+	CrcliLogger = loggo.GetLogger("coderockit.cli.crcli")
+	FileioLogger = loggo.GetLogger("coderockit.cli.fileio")
+	HashLogger = loggo.GetLogger("coderockit.cli.hash")
 
 	if configDir != "" {
-		logger.Debugf("CodeRockIt --config directory: %q\n", configDir)
+		ConfigLogger.Debugf("CodeRockIt --config directory: %q\n", configDir)
 	}
 	filename, err := GetConfigFilename()
-	logger.Debugf("Using config file: %s\n", filename)
+	ConfigLogger.Debugf("Using config file: %s\n", filename)
 
 	// Create the .coderockit directory in the current directory if it does not exist
-	dotcr := GetWorkDirectory()
+	dotcr := GetCRDirectory()
 	if err := os.MkdirAll(dotcr, os.ModePerm); err != nil {
-		logger.Debugf("Cannot create the %s directory: %s", dotcr, err)
+		ConfigLogger.Debugf("Cannot create the %s directory: %s", dotcr, err)
 	}
 
 	dotcrApply := GetApplyDirectory()
 	if err := os.MkdirAll(dotcrApply, os.ModePerm); err != nil {
-		logger.Debugf("Cannot create the %s directory: %s", dotcrApply, err)
+		ConfigLogger.Debugf("Cannot create the %s directory: %s", dotcrApply, err)
 	}
 
 	// Create the $HOME/.coderockit directory if it does not exist
-	homeDotcr := GetHomeWorkDirectory()
+	homeDotcr := GetHomeCRDirectory()
 	if homeDotcr != "" {
 		if err := os.MkdirAll(homeDotcr, os.ModePerm); err != nil {
-			logger.Debugf("Cannot create the %s directory: %s", homeDotcr, err)
+			ConfigLogger.Debugf("Cannot create the %s directory: %s", homeDotcr, err)
 		} else {
 			dotcrCache := GetHomeCacheDirectory()
 			if err := os.MkdirAll(dotcrCache, os.ModePerm); err != nil {
-				logger.Debugf("Cannot create the %s directory: %s", dotcrCache, err)
+				ConfigLogger.Debugf("Cannot create the %s directory: %s", dotcrCache, err)
 			}
 		}
 	}
 }
 
-func GetHomeWorkDirectory() string {
-	logger := loggo.GetLogger("coderockit.cli.config")
+func GetHomeCRDirectory() string {
 
 	user, err := user.Current()
 	if err == nil {
-		//logger.Debugf("Home Dir: %s", user.HomeDir)
-		return filepath.Join(user.HomeDir+"/.", codeRockItWorkDirName)
+		//ConfigLogger.Debugf("Home Dir: %s", user.HomeDir)
+		return filepath.Join(user.HomeDir+"/.", codeRockItDirName)
 	} else {
-		logger.Criticalf("Error: %s", err)
+		ConfigLogger.Criticalf("Error: %s", err)
 	}
 	return ""
 }
 
 func GetHomeCacheDirectory() string {
-	return filepath.Join(GetHomeWorkDirectory(), "cache")
+	return filepath.Join(GetHomeCRDirectory(), "cache")
 }
 
 func GetHomeConfigFile() string {
-	return filepath.Join(GetHomeWorkDirectory(), "config.json")
+	return filepath.Join(GetHomeCRDirectory(), "config.json")
 }
 
 func GetApiAccessToken(tokIndex int) string {
-	logger := loggo.GetLogger("coderockit.cli.config")
 	if apiAccessTokens == nil {
 		homeConfig := viper.New()
 		homeConfig.SetConfigType("json")
@@ -94,7 +101,7 @@ func GetApiAccessToken(tokIndex int) string {
 		homeConfig.AddConfigPath("/etc/coderockit/")   // path to look for the config file in
 		err := homeConfig.ReadInConfig()
 		if err != nil {
-			logger.Debugf("Fatal error reading config.json config file: %s \n", err)
+			ConfigLogger.Debugf("Fatal error reading config.json config file: %s \n", err)
 		}
 
 		if homeConfig.IsSet("apiAccessTokens") {
@@ -104,16 +111,24 @@ func GetApiAccessToken(tokIndex int) string {
 	return apiAccessTokens[tokIndex]
 }
 
-func GetWorkDirectory() string {
-	return filepath.Join(".", codeRockItWorkDirName)
+func GetCurrentDirectory() string {
+	currentDir, err := filepath.Abs(".")
+	if err != nil {
+		ConfigLogger.Debugf("Could not get current working directory!!")
+	}
+	return currentDir
+}
+
+func GetCRDirectory() string {
+	return filepath.Join(".", codeRockItDirName)
 }
 
 func GetApplyDirectory() string {
-	return filepath.Join(".", codeRockItWorkDirName, "apply")
+	return filepath.Join(".", codeRockItDirName, "apply")
 }
 
 func GetPinsToApplyFile() string {
-	return filepath.Join(".", codeRockItWorkDirName, "pinsToApply.json")
+	return filepath.Join(".", codeRockItDirName, "pinsToApply.json")
 }
 
 func GetConfigFilename() (string, error) {

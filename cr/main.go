@@ -4,30 +4,9 @@ import (
 	"os"
 
 	"github.com/coderockit/cr-cli/crcli"
-	"github.com/juju/loggo"
 	"gopkg.in/urfave/cli.v1"
 )
 
-/*
-cr add -- adds files that contain CodeRockIt directives that need to be processed,
-          also scans each file for the crget and crput directives and verifies that
-		   that the directives are correct with the CodeRockIt API, if the crget or crput
-			directives are incorrect in any way then the file is added as red, if the
-			file does not have any crput or crget directives then it is not added
-cr remove -- Remove a file or a directory and it's files recursively from the list of files to apply changes to
-cr empty -- Empty out all files from the list of files to apply changes to
-cr status -- show list of files that have been added to be processed
-cr diff -- what is changing compared to the CodeRockIt source since the last commit for files that have been added
-           this shows diffs for both crget and crput -- you have a unique identifier that never changes
-			and a HASH and a human
-			readable version number N.N.N (semver)
-cr apply -m "comment" -- process the files that were added and save the changes locally (this step prompts the user
-              for input for each CodeRockIt crput directive to collect a comment for the change and a license
-			   unless those are listed with the CodeRockIt directive)
-** Do not need - cr push -- push the changes up to the CodeRockIt server
-** Do not need - cr pull -- pull the changes down from the CodeRockIt server
-cr config -- show the configuration contained in the coderockit.json file
-*/
 func main() {
 	var configDir string
 
@@ -61,8 +40,6 @@ func main() {
 			Usage:   "Remove a file or a directory and it's files recursively from the list of files to apply changes to",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				//logger := loggo.GetLogger("coderockit.cli.main")
-				//logger.Debugf("remove files: %s", "need to implement")
 				crcli.RemovePaths(c.Args())
 				return nil
 			},
@@ -73,8 +50,6 @@ func main() {
 			Usage:   "Empty out all files from the list of files to apply changes to",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				//logger := loggo.GetLogger("coderockit.cli.main")
-				//logger.Debugf("remove all files: %s", "need to implement")
 				crcli.EmptyPinsToApply(c.Args())
 				return nil
 			},
@@ -85,21 +60,17 @@ func main() {
 			Usage:   "Show the list of files that an apply will affect",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				//logger := loggo.GetLogger("coderockit.cli.main")
-				//logger.Debugf("list of files: %s", "need to implement")
-				crcli.ShowStatus(c.Args(), false)
+				crcli.ShowStatus(c.Args())
 				return nil
 			},
 		},
 		{
 			Name:    "diff",
 			Aliases: []string{"d"},
-			Usage:   "Show the detailed source code diffs of files for changes that would happen on an apply",
+			Usage:   "Show the detailed source code diffs for all pins or just a specific pin",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				//logger := loggo.GetLogger("coderockit.cli.main")
-				//logger.Debugf("set of diffs: %s", "need to implement")
-				crcli.ShowStatus(c.Args(), true)
+				crcli.ShowDiffs(c.Args())
 				return nil
 			},
 		},
@@ -109,8 +80,6 @@ func main() {
 			Usage:   "Apply the changes for files that have been added and then remove the pins that were applied successfully",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				//logger := loggo.GetLogger("coderockit.cli.main")
-				//logger.Debugf("apply changes: %s", "need to implement")
 				crcli.ApplyPins(c.Args())
 				return nil
 			},
@@ -121,8 +90,6 @@ func main() {
 			Usage:   "Show the configuration in the coderockit.json file",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				//logger := loggo.GetLogger("coderockit.cli.main")
-				//logger.Debugf("config is: %s", "need to implement")
 				crcli.ShowConfig(c.Args())
 				return nil
 			},
@@ -133,8 +100,7 @@ func main() {
 			Usage:   "Grant/Remove/Modify permissions for users in groups and pins you manage",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				logger := loggo.GetLogger("coderockit.cli.main")
-				logger.Debugf("grant/remove/modify perms: %s", "need to implement")
+				crcli.ApplyPermissions(c.Args())
 				return nil
 			},
 		},
@@ -144,8 +110,7 @@ func main() {
 			Usage:   "Send a message to users who are members of your same groups and pins OR request access to a group or pin",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				logger := loggo.GetLogger("coderockit.cli.main")
-				logger.Debugf("send messages: %s", "need to implement")
+				crcli.SendMessage(c.Args())
 				return nil
 			},
 		},
@@ -155,28 +120,11 @@ func main() {
 			Usage:   "Calculate the SHA-512 hash of the content in a given file",
 			Action: func(c *cli.Context) error {
 				crcli.LoadConfiguration(configDir)
-				//logger := loggo.GetLogger("coderockit.cli.main")
-				//logger.Debugf("calculate hash: %s", "need to implement")
 				crcli.CalculateHash(c.Args())
 				return nil
 			},
 		},
 	}
 
-	//	app.Action = func(c *cli.Context) error {
-	//		// loading the config MUST be done first so that logging is configured first
-	//		crcli.LoadConfiguration(configDir)
-
-	//		logger := loggo.GetLogger("coderockit.cli.main")
-	//		logger.Debugf("Still invoking last app.Action function!!!")
-
-	//		// crcli.Hash("hash this")
-
-	//		return nil
-	//	}
-
 	app.Run(os.Args)
-
-	logger := loggo.GetLogger("coderockit.cli.main")
-	logger.Debugf("DONE!!")
 }

@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/loggo"
 	"gopkg.in/resty.v1"
 )
 
@@ -47,13 +46,12 @@ func (p Pin) ApiSuccess() bool {
 type Pinmap map[string][]Pin
 
 func NewPin(verb string, pinUri string) Pin {
-	logger := loggo.GetLogger("coderockit.cli.crcli")
 	pinUri = strings.TrimSpace(pinUri)
 
-	logger.Debugf("%s :: Creating new pin: %s", verb, pinUri)
+	CrcliLogger.Debugf("%s :: Creating new pin: %s", verb, pinUri)
 
 	parts := parsepinUri(verb, pinUri)
-	logger.Debugf("parts is: %s", parts)
+	CrcliLogger.Debugf("parts is: %s", parts)
 
 	groupName := parts[0]
 	name := parts[1]
@@ -74,12 +72,11 @@ func NewPin(verb string, pinUri string) Pin {
 		Version: version, ParentVersion: parentVersion,
 		Hash: "NONE", ApiMsg: "No attempt to verify yet",
 	}
-	logger.Debugf("returning newPin: %s", newPin)
+	CrcliLogger.Debugf("returning newPin: %s", newPin)
 	return newPin
 }
 
 func parsepinUri(verb string, pinUri string) []string {
-	logger := loggo.GetLogger("coderockit.cli.crcli")
 	var parts []string
 
 	// The pin url is of the form
@@ -87,18 +84,17 @@ func parsepinUri(verb string, pinUri string) []string {
 	beginIndex := strings.Index(pinUri, verb+" /pin/")
 	if beginIndex != -1 {
 		realPin := strings.Split(pinUri[beginIndex:len(pinUri)], " ")
-		logger.Debugf("realPin 0: %s", realPin[0])
+		CrcliLogger.Debugf("realPin 0: %s", realPin[0])
 		parts = strings.Split(realPin[1][5:len(realPin[1])], "/")
 	}
 
-	logger.Debugf("%s :: %s :: parsePin parts is: %s", verb, pinUri, parts)
+	CrcliLogger.Debugf("%s :: %s :: parsePin parts is: %s", verb, pinUri, parts)
 	return parts
 }
 
 func getVerifyPinURI(apiURL string, pin Pin) string {
-	logger := loggo.GetLogger("coderockit.cli.crcli")
-	logger.Debugf("Escaping pin version: %s", pin.Version)
-	//logger.Debugf("Pin hash: %s", pin.Hash)
+	CrcliLogger.Debugf("Escaping pin version: %s", pin.Version)
+	//CrcliLogger.Debugf("Pin hash: %s", pin.Hash)
 	//versionAndHashAndParent := ""
 
 	if pin.IsGet() {
@@ -114,10 +110,9 @@ func getVerifyPinURI(apiURL string, pin Pin) string {
 }
 
 func verifyPin(pin Pin, pinContent string, sendContent bool) Pin {
-	logger := loggo.GetLogger("coderockit.cli.crcli")
 
 	//resty.SetProxy("http://127.0.0.1:8080")
-	//logger.Debugf("The apiAllowInsecure flag is: %b", ConfBool("apiAllowInsecure", false))
+	//CrcliLogger.Debugf("The apiAllowInsecure flag is: %b", ConfBool("apiAllowInsecure", false))
 	if ConfBool("apiAllowInsecure", false) {
 		resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	}
@@ -128,7 +123,7 @@ func verifyPin(pin Pin, pinContent string, sendContent bool) Pin {
 	apiURLs := ConfStringSlice("apiURLs", []string{"https://coderockit.io/api/v1"})
 	for tokIndex, apiURL := range apiURLs {
 		verifyURL := getVerifyPinURI(apiURL, pin)
-		logger.Debugf("verifying %s pin with URL: %s", pin.Verb, verifyURL)
+		CrcliLogger.Debugf("verifying %s pin with URL: %s", pin.Verb, verifyURL)
 
 		var err error
 		if pin.IsGet() {
@@ -174,18 +169,17 @@ func verifyPin(pin Pin, pinContent string, sendContent bool) Pin {
 }
 
 func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, error) {
-	logger := loggo.GetLogger("coderockit.cli.crcli")
 
 	var myerr error
 	if err == nil {
-		logger.Debugf("resonse status code: %d", resp.StatusCode())
+		CrcliLogger.Debugf("resonse status code: %d", resp.StatusCode())
 		if resp.StatusCode() == 200 {
 			respBody := resp.Body()
 			var respObj interface{}
 			err := json.Unmarshal(respBody, &respObj)
 			if err == nil {
 				respMap := respObj.(map[string]interface{})
-				logger.Debugf("Reponse from verifying pin with CORRECT object: %s", respMap)
+				CrcliLogger.Debugf("Reponse from verifying pin with CORRECT object: %s", respMap)
 				pin.ApplyVersion = respMap["applyVersion"].(string)
 				pin.ApiMsg = fmt.Sprintf("Success: %s", respMap["message"].(string))
 				if pin.IsGet() {
@@ -193,7 +187,7 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 					WritePinApiContentToCache(pin, respMap["content"].(string))
 				}
 			} else {
-				logger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
+				CrcliLogger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
 				pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
 			}
 		} else {
@@ -202,12 +196,12 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 			err := json.Unmarshal(respBody, &respObj)
 			if err == nil {
 				respMap := respObj.(map[string]interface{})
-				logger.Debugf("Reponse from verifying pin with CORRECT object: %s", respMap)
+				CrcliLogger.Debugf("Reponse from verifying pin with CORRECT object: %s", respMap)
 				pin.ApplyVersion = respMap["applyVersion"].(string)
 				pin.ApiMsg = fmt.Sprintf("Fatal %d: verification failed with error: %s", resp.StatusCode(), respBody)
 				myerr = errors.New(string(resp.StatusCode()))
 			} else {
-				logger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
+				CrcliLogger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
 				pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
 			}
 			//respBody := string(resp.Body())
@@ -216,14 +210,13 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 	} else {
 		myerr = err
 		pin.ApiMsg = fmt.Sprintf("Error: %s", err)
-		logger.Criticalf("Error: %s", err)
+		CrcliLogger.Criticalf("Error: %s", err)
 	}
 
 	return pin, myerr
 }
 
 func GetMatchingVersions(requirement string, versions []string) []string {
-	logger := loggo.GetLogger("coderockit.cli.crcli")
 
 	var matchingVersions []string
 	for _, version := range versions {
@@ -244,7 +237,7 @@ func GetMatchingVersions(requirement string, versions []string) []string {
 			matchingVersionsURL := apiURL + "/matchingVersions/" + url.PathEscape(requirement) + "/" +
 				url.PathEscape(strings.Join(versions, ","))
 
-			logger.Debugf("Getting matching versions '%s' using URL: %s", versions, matchingVersionsURL)
+			CrcliLogger.Debugf("Getting matching versions '%s' using URL: %s", versions, matchingVersionsURL)
 
 			resp, err := resty.R().
 				SetHeader("Accept", "application/json").
@@ -263,22 +256,22 @@ func GetMatchingVersions(requirement string, versions []string) []string {
 							matchingVersions = append(matchingVersions, fmt.Sprintf("%s", respVer))
 						}
 
-						logger.Debugf("Response from get matching versions CORRECT object: %s", respMap)
+						CrcliLogger.Debugf("Response from get matching versions CORRECT object: %s", respMap)
 
 						if matchingVersions != nil {
 							break
 						}
 					} else {
-						logger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
+						CrcliLogger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
 						//pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
 					}
 				} else {
 					//myerr = errors.New(string(resp.StatusCode()))
 					respBody := string(resp.Body())
-					logger.Debugf("Fatal %d: matching versions failed with error: %s", resp.StatusCode(), respBody)
+					CrcliLogger.Debugf("Fatal %d: matching versions failed with error: %s", resp.StatusCode(), respBody)
 				}
 			} else {
-				logger.Criticalf("Error: %s", err)
+				CrcliLogger.Criticalf("Error: %s", err)
 			}
 		}
 	}

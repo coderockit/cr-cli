@@ -10,32 +10,28 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/juju/loggo"
 )
 
 func SavePinsToApply(pinsToApply Pinmap) {
-	logger := loggo.GetLogger("coderockit.cli.fileio")
-	//logger.Debugf("Saving pins to apply: %s", pinsToApply)
+	//FileioLogger.Debugf("Saving pins to apply: %s", pinsToApply)
 
 	pinsToApplyPath := GetPinsToApplyFile()
 	jsonString, err := json.Marshal(pinsToApply)
 	if err == nil {
-		//logger.Debugf("JSON to save: %s", jsonString)
+		//FileioLogger.Debugf("JSON to save: %s", jsonString)
 		err := ioutil.WriteFile(pinsToApplyPath, jsonString, 0644)
 		if err != nil {
-			logger.Debugf("Error: %s", err)
+			FileioLogger.Debugf("Error: %s", err)
 		} else {
-			logger.Debugf("Wrote pin cache to: %s", pinsToApplyPath)
+			FileioLogger.Debugf("Wrote pin cache to: %s", pinsToApplyPath)
 		}
 	} else {
-		logger.Debugf("Error: %s", err)
+		FileioLogger.Debugf("Error: %s", err)
 	}
 }
 
 func ReadInPinsToApply() Pinmap {
-	logger := loggo.GetLogger("coderockit.cli.fileio")
-	logger.Debugf("Reading pin cache")
+	FileioLogger.Debugf("Reading pin cache")
 
 	pinsToApply := make(Pinmap)
 
@@ -44,37 +40,34 @@ func ReadInPinsToApply() Pinmap {
 	if err == nil {
 		err := json.Unmarshal(jsonString, &pinsToApply)
 		if err != nil {
-			logger.Debugf("Error unmarshalling json in file %s: %s", pinsToApplyPath, err)
+			FileioLogger.Debugf("Error unmarshalling json in file %s: %s", pinsToApplyPath, err)
 		}
 	} else {
-		logger.Debugf("Error reading file %s: %s", pinsToApplyPath, err)
+		FileioLogger.Debugf("Error reading file %s: %s", pinsToApplyPath, err)
 	}
 
 	return pinsToApply
 }
 
 func DeleteDirectoryRecursively(pathToDir string) {
-	logger := loggo.GetLogger("coderockit.cli.fileio")
 	err := os.RemoveAll(pathToDir)
 
 	if err != nil {
-		logger.Debugf("Error deleting directory: %s", err)
+		FileioLogger.Debugf("Error deleting directory: %s", err)
 	}
 }
 
 func DeleteFileOrDir(pathToFile string) {
-	logger := loggo.GetLogger("coderockit.cli.fileio")
 	err := os.Remove(pathToFile)
 
 	if err != nil {
-		logger.Debugf("Error deleting file or directory: %s", err)
+		FileioLogger.Debugf("Error deleting file or directory: %s", err)
 	}
 }
 
 func AddPathToPins(addPath string, pinsToApply Pinmap) Pinmap {
-	logger := loggo.GetLogger("coderockit.cli.fileio")
 	abs, err := filepath.Abs(addPath)
-	//logger.Debugf("Processing path: %s", abs)
+	//FileioLogger.Debugf("Processing path: %s", abs)
 	if err == nil {
 		fi, err := os.Stat(abs)
 		if err == nil {
@@ -93,34 +86,42 @@ func AddPathToPins(addPath string, pinsToApply Pinmap) Pinmap {
 				//fmt.Println("file")
 				newPins := GetPins(addPath)
 				delete(pinsToApply, addPath)
-				//logger.Debugf("!!!newPins is: %s", newPins)
+				//FileioLogger.Debugf("!!!newPins is: %s", newPins)
 				if newPins != nil && len(newPins) > 0 {
 					pinsToApply[addPath] = append(pinsToApply[addPath], newPins...)
-					//logger.Debugf("Found pins in: %s", addPath)
+					//FileioLogger.Debugf("Found pins in: %s", addPath)
 				}
 			}
 		} else {
-			logger.Debugf("Error with path %s: %s", addPath, err)
+			FileioLogger.Debugf("Error with path %s: %s", addPath, err)
 		}
 	} else {
-		logger.Debugf("Error with path %s: %s", addPath, err)
+		FileioLogger.Debugf("Error with path %s: %s", addPath, err)
 	}
 
 	return pinsToApply
 }
 
 func RemovePathFromPins(removePath string, pinsToApply Pinmap) Pinmap {
-	logger := loggo.GetLogger("coderockit.cli.fileio")
 	abs, err := filepath.Abs(removePath)
 	if err == nil {
 		for pinFile := range pinsToApply {
-			// fmt.Printf("key[%s] value[%s]\n", pinFile, pinsToApply[pinFile])
 			if strings.Contains(pinFile, abs) {
+				//fmt.Printf("Deleting pins -- key[%s] value[%s]\n", pinFile, pinsToApply[pinFile])
+				//pins := pinsToApply[pinFile]
+				for _, pin := range pinsToApply[pinFile] {
+					versionDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
+					//fmt.Printf("1) Deleting directory %s\n", versionDir)
+					if pin.ApplyVersion != "" {
+						//fmt.Printf("2) Deleting directory %s\n", versionDir)
+						DeleteDirectoryRecursively(versionDir)
+					}
+				}
 				delete(pinsToApply, pinFile)
 			}
 		}
 	} else {
-		logger.Debugf("Error with path %s: %s", removePath, err)
+		FileioLogger.Debugf("Error with path %s: %s", removePath, err)
 	}
 	return pinsToApply
 }
@@ -158,7 +159,6 @@ func ScanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 }
 
 func GetPins(pinFile string) []Pin {
-	logger := loggo.GetLogger("coderockit.cli.fileio")
 	pins := make([]Pin, 0)
 
 	file, err := os.Open(pinFile)
@@ -188,10 +188,10 @@ func GetPins(pinFile string) []Pin {
 					foundPinStr = scanStr
 					httpVerb = "GET"
 				} else {
-					logger.Debugf("Last pin failed, your ENDGET is probably incorrect: %s", foundPinStr)
+					FileioLogger.Debugf("Last pin failed, your ENDGET is probably incorrect: %s", foundPinStr)
 					break
 				}
-				//logger.Debugf("GET matches is %d for string: %s", len(matches), foundPinStr)
+				//FileioLogger.Debugf("GET matches is %d for string: %s", len(matches), foundPinStr)
 			}
 
 			matches = crputRE.FindStringSubmatch(scanStr)
@@ -201,10 +201,10 @@ func GetPins(pinFile string) []Pin {
 					foundPinStr = scanStr
 					httpVerb = "PUT"
 				} else {
-					logger.Debugf("Last pin failed, your ENDPUT is probably incorrect: %s", foundPinStr)
+					FileioLogger.Debugf("Last pin failed, your ENDPUT is probably incorrect: %s", foundPinStr)
 					break
 				}
-				//logger.Debugf("PUT matches is %d for string: %s", len(matches), foundPinStr)
+				//FileioLogger.Debugf("PUT matches is %d for string: %s", len(matches), foundPinStr)
 			}
 
 			matches = crputPrivateRE.FindStringSubmatch(scanStr)
@@ -214,21 +214,21 @@ func GetPins(pinFile string) []Pin {
 					foundPinStr = scanStr
 					httpVerb = "PUTPRIVATE"
 				} else {
-					logger.Debugf("Last pin failed, your ENDPUT is probably incorrect: %s", foundPinStr)
+					FileioLogger.Debugf("Last pin failed, your ENDPUT is probably incorrect: %s", foundPinStr)
 					break
 				}
-				//logger.Debugf("PUT matches is %d for string: %s", len(matches), foundPinStr)
+				//FileioLogger.Debugf("PUT matches is %d for string: %s", len(matches), foundPinStr)
 			}
 
 			matches = crEndRE.FindStringSubmatch(scanStr)
 			if len(matches) >= 1 {
-				//logger.Debugf("ENDGET matches is %d for string: %s", len(matches), scanStr)
+				//FileioLogger.Debugf("ENDGET matches is %d for string: %s", len(matches), scanStr)
 				if foundPinStr != "" {
 					newPin := NewPin(httpVerb, foundPinStr)
 					newPin = verifyPin(newPin, pinContent, false)
-					//logger.Debugf("Got pins: %s", pins)
+					//FileioLogger.Debugf("Got pins: %s", pins)
 					pins = append(pins, newPin)
-					//logger.Debugf("Got pins: %s", pins)
+					//FileioLogger.Debugf("Got pins: %s", pins)
 					foundPinStr = ""
 					pinContent = ""
 				}
@@ -240,21 +240,20 @@ func GetPins(pinFile string) []Pin {
 		}
 
 		if foundPinStr != "" {
-			logger.Debugf("Last pin failed, your last ENDPUT or ENDGET is probably incorrect: %s", foundPinStr)
+			FileioLogger.Debugf("Last pin failed, your last ENDPUT or ENDGET is probably incorrect: %s", foundPinStr)
 		}
 
 	} else {
-		logger.Debugf("Error with path %s: %s", pinFile, err)
+		FileioLogger.Debugf("Error with path %s: %s", pinFile, err)
 	}
 
 	defer file.Close()
 
-	//logger.Debugf("!!!!Got pins: %s", pins)
+	//FileioLogger.Debugf("!!!!Got pins: %s", pins)
 	return pins
 }
 
 func ReadPinContent(rootPath string, pin Pin) (string, string) {
-	logger := loggo.GetLogger("coderockit.cli.fileio")
 	contentDir := filepath.Join(rootPath, pin.GroupName, pin.Name, pin.ApplyVersion)
 	if pin.ApplyVersion != "" {
 		pinContentFile := filepath.Join(contentDir, "pinContent.pin")
@@ -263,7 +262,7 @@ func ReadPinContent(rootPath string, pin Pin) (string, string) {
 			//fmt.Printf("      >> Content from: %s\n", pinContentFile)
 			return pinContentFile, string(pinContent)
 		} else {
-			logger.Debugf("Error reading file %s: %s\n", pinContentFile, err)
+			FileioLogger.Debugf("Error reading file %s: %s\n", pinContentFile, err)
 			return pinContentFile, fmt.Sprintf("%s\n", err)
 		}
 	}
@@ -279,7 +278,6 @@ func ReadPinContentToPut(pin Pin) (string, string) {
 }
 
 func WritePinContent(rootPath string, pin Pin, pinContent string) {
-	logger := loggo.GetLogger("coderockit.cli.fileio")
 	contentDir := filepath.Join(rootPath, pin.GroupName, pin.Name, pin.ApplyVersion)
 	if pin.ApplyVersion != "" {
 		if err := os.MkdirAll(contentDir, os.ModePerm); err == nil {
@@ -289,16 +287,16 @@ func WritePinContent(rootPath string, pin Pin, pinContent string) {
 				pinHashFile := filepath.Join(contentDir, "pinHash.txt")
 				err2 := ioutil.WriteFile(pinHashFile, []byte(pin.Hash), 0644)
 				if err2 != nil {
-					logger.Debugf("Cannot write to file %s: %s", pinHashFile, err2)
+					FileioLogger.Debugf("Cannot write to file %s: %s", pinHashFile, err2)
 				}
 			} else {
-				logger.Debugf("Cannot write to file %s: %s", pinContentFile, err1)
+				FileioLogger.Debugf("Cannot write to file %s: %s", pinContentFile, err1)
 			}
 		} else {
-			logger.Debugf("Cannot create the %s directory: %s", contentDir, err)
+			FileioLogger.Debugf("Cannot create the %s directory: %s", contentDir, err)
 		}
 	} else {
-		logger.Debugf("Fatal: for %s no pin applyVersion, content NOT saved %s:\n%s", pin.Verb, pin, pinContent)
+		FileioLogger.Debugf("Fatal: for %s no pin applyVersion, content NOT saved %s:\n%s", pin.Verb, pin, pinContent)
 	}
 }
 
@@ -311,7 +309,6 @@ func WritePinApiContentToCache(pin Pin, pinContent string) {
 }
 
 func VerifyGetPinsAgainstLocalPutPins(pinsToApply Pinmap) Pinmap {
-	logger := loggo.GetLogger("coderockit.cli.crcli")
 
 	for pinFile := range pinsToApply {
 		pins := pinsToApply[pinFile]
@@ -340,23 +337,23 @@ func VerifyGetPinsAgainstLocalPutPins(pinsToApply Pinmap) Pinmap {
 
 								matchingVersions := GetMatchingVersions(pin.Version, putApplyVersions)
 								if len(matchingVersions) > 0 {
-									logger.Debugf("Found matching versions: %s", matchingVersions)
+									FileioLogger.Debugf("Found matching versions: %s", matchingVersions)
 									pin.ApiMsg = fmt.Sprintf("Local PUT apply cache matches these versions "+
 										"%s :: %s -- MAY OVERRIDE FAILURE -- %s", matchingVersions,
 										absPinDir, pin.ApiMsg)
 									pins[pinIndex] = pin
 								} else {
-									logger.Debugf("Cannot verify pin using local apply %s", pin)
+									FileioLogger.Debugf("Cannot verify pin using local apply %s", pin)
 								}
 							} else {
-								logger.Debugf("Error listing files in directory %s: %s", absPinDir, err)
+								FileioLogger.Debugf("Error listing files in directory %s: %s", absPinDir, err)
 							}
 						}
 					} else {
-						logger.Debugf("Cannot verify pin using local apply %s: %s", pin, err)
+						FileioLogger.Debugf("Cannot verify pin using local apply %s: %s", pin, err)
 					}
 				} else {
-					logger.Debugf("Cannot verify pin using local apply %s: %s", pin, err)
+					FileioLogger.Debugf("Cannot verify pin using local apply %s: %s", pin, err)
 				}
 			}
 		}
@@ -367,8 +364,23 @@ func VerifyGetPinsAgainstLocalPutPins(pinsToApply Pinmap) Pinmap {
 	return pinsToApply
 }
 
+func GetEndingPath(fullPath string, startingPath string) string {
+	//FileioLogger.Debugf("Starting path: %s", startingPath)
+	beginIndex := strings.Index(fullPath, startingPath)
+	if beginIndex != -1 {
+		return fullPath[beginIndex+len(startingPath)+1:]
+	}
+	return fullPath
+}
+
 func FinishApplyingPut(pin Pin) {
 	// remove content out of apply cache for PUT
+	versionDir := filepath.Join(GetApplyDirectory(), pin.GroupName, pin.Name, pin.ApplyVersion)
+	//fmt.Printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 1) Deleting directory %s\n", versionDir)
+	if pin.ApplyVersion != "" {
+		//fmt.Printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!2) Deleting directory %s\n", versionDir)
+		DeleteDirectoryRecursively(versionDir)
+	}
 }
 
 func FinishApplyingGet(pinFile string, pin Pin) {
