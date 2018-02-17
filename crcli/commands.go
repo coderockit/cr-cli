@@ -12,6 +12,19 @@ import (
 	"gopkg.in/urfave/cli.v1"
 )
 
+func Init(args cli.Args) {
+	CmdsLogger.Debugf("init new project: %s", "need to implement")
+
+	// setup the ~/.coderockit/config.json file with an access token
+	//curl -d "client_id=apitoken" -d "client_secret=25306541-c13b-44ed-aac2-a2090a5cbdb5"
+	// -d "username=nsivraj" -d 'password=Math4joy!' -d "grant_type=password"
+	// "http://127.0.0.1:8080/auth/realms/coderockit/protocol/openid-connect/token"
+
+	//apiURLs := ConfStringSlice("apiURLs", defaultApiUrls)
+	//for tokIndex, apiURL := range apiURLs {
+
+}
+
 func AddPaths(args cli.Args) {
 	//CmdsLogger.Debugf("added file: %s", args.First())
 
@@ -235,29 +248,31 @@ func ShowPinDiff(pin Pin, filePath string) {
 func ShowConfig(args cli.Args) {
 	// read in the config file and write it out to the console
 	filename, _ := GetConfigFilename()
-	fmt.Printf("Using config file: %s\n", filename)
+	fmt.Printf("Configuration in file: %s\n", filename)
 	config, err := ioutil.ReadFile(filename)
 	if err == nil {
-		fmt.Printf("%s", config)
+		fmt.Printf("%s\n", config)
 	} else {
 		CmdsLogger.Debugf("Error reading file %s: %s", filename, err)
 	}
 
 	filename = GetHomeConfigFile()
-	fmt.Printf("Using home config file: %s\n", filename)
+	fmt.Printf("Configuration in file: %s\n", filename)
 	config, err = ioutil.ReadFile(filename)
 	if err == nil {
-		fmt.Printf("%s", config)
+		fmt.Printf("%s\n", config)
 	} else {
 		CmdsLogger.Debugf("Error reading file %s: %s", filename, err)
 	}
 }
 
 func CalculateHash(args cli.Args) {
-	fileContents, err := ioutil.ReadFile(args[0])
-	if err == nil {
-		hash := Hash(string(fileContents))
-		fmt.Printf("%s\n", hash)
+	if len(args) > 0 {
+		fileContents, err := ioutil.ReadFile(args[0])
+		if err == nil {
+			hash := Hash(string(fileContents))
+			fmt.Printf("%s\n", hash)
+		}
 	}
 }
 

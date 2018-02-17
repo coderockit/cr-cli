@@ -373,6 +373,24 @@ func GetEndingPath(fullPath string, startingPath string) string {
 	return fullPath
 }
 
+func PathExists(filePath string) bool {
+	_, statErr := os.Stat(filePath)
+	if statErr == nil {
+		return true
+	} else {
+		return false
+	}
+}
+
+func AbsPath(filePath string) string {
+	abs, err := filepath.Abs(filePath)
+	if err != nil {
+		abs = filePath
+		fmt.Errorf("ERROR %s :: Could not find absolute path for: %s\n", err, filePath)
+	}
+	return abs
+}
+
 // Copy the src file to dst. Any existing file will be overwritten and will not
 // copy file attributes.
 func Copy(src, dst string) error {

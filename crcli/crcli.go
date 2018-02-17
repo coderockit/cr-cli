@@ -12,6 +12,8 @@ import (
 	"gopkg.in/resty.v1"
 )
 
+var defaultApiUrls []string = []string{"https://coderockit.io/api/v1"}
+
 // The CodeRockIt pin type
 type Pin struct {
 	Verb          string
@@ -120,7 +122,7 @@ func verifyPin(pin Pin, pinContent string, sendContent bool) Pin {
 	// calculate hash of pinContent
 	pin.Hash = Hash(pinContent)
 
-	apiURLs := ConfStringSlice("apiURLs", []string{"https://coderockit.io/api/v1"})
+	apiURLs := ConfStringSlice("apiURLs", defaultApiUrls)
 	for tokIndex, apiURL := range apiURLs {
 		verifyURL := getVerifyPinURI(apiURL, pin)
 		CrcliLogger.Debugf("verifying %s pin with URL: %s", pin.Verb, verifyURL)
@@ -231,7 +233,7 @@ func GetMatchingVersions(requirement string, versions []string) []string {
 			resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 		}
 
-		apiURLs := ConfStringSlice("apiURLs", []string{"https://coderockit.io/api/v1"})
+		apiURLs := ConfStringSlice("apiURLs", defaultApiUrls)
 		for tokIndex, apiURL := range apiURLs {
 
 			matchingVersionsURL := apiURL + "/matchingVersions/" + url.PathEscape(requirement) + "/" +
