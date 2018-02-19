@@ -1,28 +1,107 @@
 package crcli
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
+	//	"github.com/PuerkitoBio/goquery"
 	"github.com/fatih/color"
+	"gopkg.in/headzoo/surf.v1"
+	"gopkg.in/headzoo/surf.v1/agent"
 	"gopkg.in/urfave/cli.v1"
 )
 
 func Init(args cli.Args) {
-	CmdsLogger.Debugf("init new project: %s", "need to implement")
+	//CmdsLogger.Debugf("init new project: %s", "need to implement")
 
-	// setup the ~/.coderockit/config.json file with an access token
-	//curl -d "client_id=apitoken" -d "client_secret=25306541-c13b-44ed-aac2-a2090a5cbdb5"
-	// -d "username=nsivraj" -d 'password=Math4joy!' -d "grant_type=password"
-	// "http://127.0.0.1:8080/auth/realms/coderockit/protocol/openid-connect/token"
+	//How to use keycloak to create a new user via a web service /coderockit/users
+	//https://gist.github.com/thomasdarimont/c4e739c5a319cf78a4cff3b87173a84b
 
 	//apiURLs := ConfStringSlice("apiURLs", defaultApiUrls)
 	//for tokIndex, apiURL := range apiURLs {
 
+	wantToRegisterNewUser := UserInput("New User or Existing User [n/e]: ")
+	if wantToRegisterNewUser == "n" {
+		bow := surf.NewBrowser()
+		bow.SetUserAgent(agent.Chrome())
+		if ConfBool("apiAllowInsecure", false) {
+			tr := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			bow.SetTransport(tr)
+		}
+
+		registerUserUrl := ConfString("registerUser", "https://coderockit.io/ui/v1/auth/realms/coderockit/account")
+		err := bow.Open(registerUserUrl)
+		if err == nil {
+
+			err := bow.Click("#kc-registration a")
+			if err == nil {
+				//fmt.Println(bow.Title())
+				doneRegisteringNewUser := true
+				for {
+					fm, err := bow.Form("#kc-register-form")
+					if err == nil {
+						fm.Input("firstName", UserInput("Enter First Name: "))
+						fm.Input("lastName", UserInput("Enter Last Name: "))
+						fm.Input("email", UserInput("Enter Email Address: "))
+						fm.Input("username", UserInput("Enter Username: "))
+						fm.Input("password", UserInput("Enter Password: "))
+						fm.Input("password-confirm", UserInput("Enter The Same Password Again: "))
+						//fmt.Println("The form is: %s", fm)
+						err = fm.Submit()
+						if err == nil {
+							registerFeedback := bow.Find("span.kc-feedback-text")
+							if registerFeedback != nil {
+								fmt.Println(registerFeedback.Text())
+							}
+							registerFailed := bow.Find("#kc-register-form")
+							if registerFailed.Length() != 0 {
+								doneRegisteringNewUser = false
+								//fmt.Println("Found form so NOT done: %s", registerFailed)
+							}
+						} else {
+							fmt.Printf("Could not register new user due to error: %s\n", err)
+						}
+					} else {
+						fmt.Printf("Could not register new user due to error: %s\n", err)
+					}
+
+					if doneRegisteringNewUser {
+						break
+					}
+				}
+			} else {
+				fmt.Printf("Could not register new user due to error: %s\n", err)
+			}
+		} else {
+			fmt.Printf("Could not register new user due to error: %s\n", err)
+		}
+	} else {
+		username := UserInput("Enter Username: ")
+		password := UserInput("Enter Password: ")
+		fmt.Printf("Username: %s\nPassword: %s\n", username, password)
+
+		// setup the ~/.coderockit/config.json file with an access token
+		//curl -d "client_id=apitoken" -d "client_secret=25306541-c13b-44ed-aac2-a2090a5cbdb5"
+		// -d "username=nsivraj" -d 'password=Math4joy!' -d "grant_type=password"
+		// "http://127.0.0.1:8080/auth/realms/coderockit/protocol/openid-connect/token"
+
+	}
+}
+
+func UserInput(msg string) string {
+	fmt.Print(msg)
+	var input string
+	fmt.Scanln(&input)
+	//fmt.Printf("You entered: %s\n", input)
+	return input
 }
 
 func AddPaths(args cli.Args) {

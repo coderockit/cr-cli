@@ -60,7 +60,8 @@ func LoadConfiguration(c *cli.Context, configDir string) bool {
 					"		\"coderockit.cli.fileio\": \"INFO\",\n" +
 					"		\"coderockit.cli.crcli\": \"INFO\"\n" +
 					"	},\n" +
-					"	\"apiAllowInsecure\": true,\n" +
+					"	\"apiAllowInsecure\": false,\n" +
+					"	\"registerUser\": \"https://coderockit.io/ui/v1/auth/realms/coderockit/account\",\n" +
 					"	\"apiURLs\": [\"https://coderockit.io/api/v1\"]\n" +
 					"}"
 				codeRockItJsonFile := filepath.Join(".", "coderockit.json")
