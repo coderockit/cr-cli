@@ -1,6 +1,7 @@
 package crcli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -21,7 +22,8 @@ var CmdsLogger loggo.Logger
 var CrcliLogger loggo.Logger
 var FileioLogger loggo.Logger
 var HashLogger loggo.Logger
-var apiAccessTokens []string
+
+var apiAccessTokens []interface{}
 
 func InitViper(configDir string) error {
 	viper.SetConfigType("json")
@@ -29,8 +31,8 @@ func InitViper(configDir string) error {
 	if configDir != "" {
 		viper.AddConfigPath(configDir) // optional configDir passed in from the command line
 	}
-	viper.AddConfigPath(".")                                       // looking for config in the working directory
-	viper.AddConfigPath(filepath.Join("$HOME", codeRockItDirName)) // call multiple times to add many search paths
+	viper.AddConfigPath(".")                  // looking for config in the working directory
+	viper.AddConfigPath(GetHomeCRDirectory()) // call multiple times to add many search paths
 	viper.AddConfigPath(fmt.Sprintf("%s", filepath.Separator) + "etc" +
 		fmt.Sprintf("%s", filepath.Separator) + "coderockit") // path to look for the config file in
 	err := viper.ReadInConfig()
@@ -159,8 +161,9 @@ func GetHomeCRDirectory() string {
 
 	user, err := user.Current()
 	if err == nil {
-		//ConfigLogger.Debugf("Home Dir: %s", user.HomeDir)
-		return filepath.Join(user.HomeDir+"/.", codeRockItDirName)
+		homeCRDir := filepath.Join(user.HomeDir, codeRockItDirName)
+		//ConfigLogger.Debugf("Home .coderockit Dir: %s", homeCRDir)
+		return homeCRDir
 	} else {
 		ConfigLogger.Criticalf("Error: %s", err)
 	}
@@ -175,12 +178,37 @@ func GetHomeConfigFile() string {
 	return filepath.Join(GetHomeCRDirectory(), "config.json")
 }
 
-func GetApiAccessToken(tokIndex int) string {
+func StoreApiAccessToken(tokenIndex int, accessToken map[string]interface{}) {
+	if GetApiAccessTokens(tokenIndex) == nil {
+		apiAccessTokens = append(apiAccessTokens, accessToken)
+	} else {
+		// we must already have an access token array, find out where to put this new one
+		// and then store it off to the config.json file
+		ConfigLogger.Debugf("We already have an access token array!\n")
+		apiAccessTokens[tokenIndex] = accessToken
+	}
+
+	var configJson map[string]interface{} = make(map[string]interface{})
+	configJson["apiAccessTokens"] = apiAccessTokens
+	jsonString, err := json.Marshal(configJson)
+	if err == nil {
+		configJsonFile := filepath.Join(GetHomeCRDirectory(), "config.json")
+		ConfigLogger.Debugf("Writing access token to file: %s\n", configJsonFile)
+		err := ioutil.WriteFile(configJsonFile, []byte(jsonString), 0644)
+		if err != nil {
+			ConfigLogger.Debugf("Fatal error creating '%s' file: %s \n", configJsonFile, err)
+		}
+	} else {
+		ConfigLogger.Debugf("Error marshalling object to JSON: %s", err)
+	}
+}
+
+func GetApiAccessTokens(tokIndex int) map[string]interface{} {
 	if apiAccessTokens == nil {
 		homeConfig := viper.New()
 		homeConfig.SetConfigType("json")
-		homeConfig.SetConfigName("config")                                  // name of config file (without extension)
-		homeConfig.AddConfigPath(filepath.Join("$HOME", codeRockItDirName)) // call multiple times to add many search paths
+		homeConfig.SetConfigName("config")             // name of config file (without extension)
+		homeConfig.AddConfigPath(GetHomeCRDirectory()) // call multiple times to add many search paths
 		homeConfig.AddConfigPath(fmt.Sprintf("%s", filepath.Separator) + "etc" +
 			fmt.Sprintf("%s", filepath.Separator) + "coderockit") // path to look for the config file in
 		err := homeConfig.ReadInConfig()
@@ -189,10 +217,24 @@ func GetApiAccessToken(tokIndex int) string {
 		}
 
 		if homeConfig.IsSet("apiAccessTokens") {
-			apiAccessTokens = homeConfig.GetStringSlice("apiAccessTokens")
+			apiAccessTokens = homeConfig.Get("apiAccessTokens").([]interface{})
 		}
 	}
-	return apiAccessTokens[tokIndex]
+
+	if len(apiAccessTokens) > 0 {
+		return apiAccessTokens[tokIndex].(map[string]interface{})
+	} else {
+		return nil
+	}
+}
+
+func GetApiAccessToken(tokIndex int) string {
+	accessToken := GetApiAccessTokens(tokIndex)
+	if accessToken == nil {
+		return ""
+	} else {
+		return accessToken["access_token"].(string)
+	}
 }
 
 func GetCurrentDirectory() string {
