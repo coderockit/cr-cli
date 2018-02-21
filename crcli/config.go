@@ -33,8 +33,8 @@ func InitViper(configDir string) error {
 	}
 	viper.AddConfigPath(".")                  // looking for config in the working directory
 	viper.AddConfigPath(GetHomeCRDirectory()) // call multiple times to add many search paths
-	viper.AddConfigPath(fmt.Sprintf("%s", filepath.Separator) + "etc" +
-		fmt.Sprintf("%s", filepath.Separator) + "coderockit") // path to look for the config file in
+	viper.AddConfigPath(
+		filepath.Join(GetCurrentDirectoryRootPath(), "etc", "coderockit")) // path to look for the config file in
 	err := viper.ReadInConfig()
 	return err
 }
@@ -209,8 +209,8 @@ func GetApiAccessTokens(tokIndex int) map[string]interface{} {
 		homeConfig.SetConfigType("json")
 		homeConfig.SetConfigName("config")             // name of config file (without extension)
 		homeConfig.AddConfigPath(GetHomeCRDirectory()) // call multiple times to add many search paths
-		homeConfig.AddConfigPath(fmt.Sprintf("%s", filepath.Separator) + "etc" +
-			fmt.Sprintf("%s", filepath.Separator) + "coderockit") // path to look for the config file in
+		homeConfig.AddConfigPath(
+			filepath.Join(GetCurrentDirectoryRootPath(), "etc", "coderockit")) // path to look for the config file in
 		err := homeConfig.ReadInConfig()
 		if err != nil {
 			ConfigLogger.Debugf("Fatal error reading config.json config file: %s \n", err)
@@ -235,6 +235,24 @@ func GetApiAccessToken(tokIndex int) string {
 	} else {
 		return accessToken["access_token"].(string)
 	}
+}
+
+func GetCurrentDirectoryRootPath() string {
+	currVolPath := GetCurrentDirectory()
+	var volName string = ""
+	if strings.HasPrefix(currVolPath, "/") {
+		volName = "/"
+	} else {
+		colonIndex := strings.Index(currVolPath, ":")
+		if colonIndex == -1 {
+			volName = "C:\\"
+		} else {
+			volName = currVolPath[0:colonIndex+1] + "\\"
+		}
+	}
+
+	//fmt.Printf("The volume name is: %s\n", volName)
+	return volName
 }
 
 func GetCurrentDirectory() string {
