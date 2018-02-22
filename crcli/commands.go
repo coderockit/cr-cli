@@ -32,40 +32,10 @@ func Init(args cli.Args) {
 
 	apiURLs := ConfStringSlice("apiURLs", defaultApiUrls)
 	for tokIndex, apiURL := range apiURLs {
-		accessToken := GetApiAccessToken(tokIndex)
-		CmdsLogger.Debugf("The url is %s and the token is %s\n", apiURL, accessToken)
-		if accessToken != "" {
-			token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-				//CmdsLogger.Debugf("token is valid: %s\ntoken headers: %s\ntoken claims: %s\n", token.Valid, token.Header, token.Claims)
-				tokenKey, err := base64.StdEncoding.DecodeString("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgA3A/R2TL8aLpLCLF8t+t3IaYTR/xX4UATaaicA8+7AK+K/eGqrdjPxW8HJBJurzGgxqsVY5n/FE08af+baWcm06yLmvVk83V8/90vUu5EFNm4DcUvQXIwoLy9rnjUJRLQ/+F+3hzKaOwxhVyCJQ4cpnOjdfawnDB5m3cVA7t+Y1d3yC9QBGyn8+JohGMRpQt3EEX8PypVzc+sB85j8oBvZxTvHM9uDj6Pj1uY46xt2pHr2Nk8vqJYCmqSwH/ctDyNFADfgdlc9JpsqV8zjgn0B7t/bjMpFkFnIf7f6dUtygcj7Eqp5uVCfKK52hGv/FBCljeex/27iJ920GfJrNRQIDAQAB")
-				if err == nil {
-					return tokenKey, nil
-				} else {
-					return nil, err
-				}
-			})
-
-			if token.Claims != nil {
-				username = token.Claims.(jwt.MapClaims)["preferred_username"].(string)
-			}
-
-			if token.Valid {
-				CmdsLogger.Debugf("Valid access token found")
-			} else if ve, ok := err.(*jwt.ValidationError); ok {
-				if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-					tokenProblem = true
-					CmdsLogger.Debugf("[1] Incorrect access token: ", err)
-				} else if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
-					// Token is either expired or not active yet
-					tokenProblem = true
-					CmdsLogger.Debugf("[2] Access token has expired or is not yet active: ", err)
-				} else {
-					CmdsLogger.Debugf("[3] Couldn't handle this token:", err)
-				}
-			} else {
-				tokenProblem = true
-				CmdsLogger.Debugf("[4] Incorrect access token: ", err)
-			}
+		CmdsLogger.Debugf("The apiURL for init is %s\n", apiURL)
+		username, tokenProblem = CheckToken(tokIndex)
+		if !tokenProblem {
+			break
 		}
 	}
 
@@ -136,13 +106,60 @@ func Init(args cli.Args) {
 		fmt.Printf("Initialized with user: %s\n", username)
 		if tokenProblem {
 			// get a new token
-			fmt.Printf("A new access token is needed!\n")
 			GetNewAccessToken()
 		}
 	}
 }
 
+func CheckToken(tokIndex int) (string, bool) {
+	var username string = ""
+	var tokenProblem bool = false
+	accessToken := GetApiAccessToken(tokIndex)
+
+	if accessToken != "" {
+		token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
+			CmdsLogger.Debugf("token is valid: %s\ntoken headers: %s\ntoken claims: %s\n", token.Valid, token.Header, token.Claims)
+			tokenKey, err := base64.StdEncoding.DecodeString("key_for_validating_token")
+			if err == nil {
+				return tokenKey, nil
+			} else {
+				return nil, err
+			}
+		})
+
+		if token.Claims != nil {
+			username = token.Claims.(jwt.MapClaims)["preferred_username"].(string)
+		}
+
+		if token.Valid {
+			CmdsLogger.Debugf("Valid access token found")
+		} else if ve, ok := err.(*jwt.ValidationError); ok {
+			if ve.Errors&jwt.ValidationErrorMalformed != 0 {
+				tokenProblem = true
+				CmdsLogger.Debugf("[1] Incorrect access token: ", err)
+			} else if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
+				// Token is either expired or not active yet
+				tokenProblem = true
+				CmdsLogger.Debugf("[2] Access token has expired or is not yet active: ", err)
+			} else {
+
+				if ApiAccessTokenIsTooOld(tokIndex) {
+					tokenProblem = true
+				} else {
+					CmdsLogger.Debugf("[3] The access token is probably correct:", err)
+				}
+			}
+		} else {
+			tokenProblem = true
+			CmdsLogger.Debugf("[4] Incorrect access token: ", err)
+		}
+	}
+
+	return username, tokenProblem
+}
+
 func GetNewAccessToken() {
+	fmt.Printf("A new access token is needed!\n")
 	username := UserInput("Enter Username: ")
 	password := UserInput("Enter Password: ")
 	//fmt.Printf("Username: %s\nPassword: %s\n", username, password)

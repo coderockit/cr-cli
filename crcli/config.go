@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -154,6 +155,8 @@ func LoadConfiguration(c *cli.Context, configDir string) bool {
 		}
 	}
 
+	InitApiAccessTokenMap()
+
 	return ready
 }
 
@@ -178,14 +181,20 @@ func GetHomeConfigFile() string {
 	return filepath.Join(GetHomeCRDirectory(), "config.json")
 }
 
-func StoreApiAccessToken(tokenIndex int, accessToken map[string]interface{}) {
-	if GetApiAccessTokens(tokenIndex) == nil {
+func CurrentTimestampMillis() int64 {
+	return time.Now().UnixNano() / (int64(time.Millisecond) / int64(time.Nanosecond))
+}
+
+func StoreApiAccessToken(tokIndex int, accessToken map[string]interface{}) {
+	accessToken["cr-timestamp"] = strconv.FormatInt(CurrentTimestampMillis(), 10)
+
+	if GetApiAccessTokenMap(tokIndex) == nil {
 		apiAccessTokens = append(apiAccessTokens, accessToken)
 	} else {
 		// we must already have an access token array, find out where to put this new one
 		// and then store it off to the config.json file
 		ConfigLogger.Debugf("We already have an access token array!\n")
-		apiAccessTokens[tokenIndex] = accessToken
+		apiAccessTokens[tokIndex] = accessToken
 	}
 
 	var configJson map[string]interface{} = make(map[string]interface{})
@@ -203,7 +212,7 @@ func StoreApiAccessToken(tokenIndex int, accessToken map[string]interface{}) {
 	}
 }
 
-func GetApiAccessTokens(tokIndex int) map[string]interface{} {
+func InitApiAccessTokenMap() {
 	if apiAccessTokens == nil {
 		homeConfig := viper.New()
 		homeConfig.SetConfigType("json")
@@ -220,7 +229,9 @@ func GetApiAccessTokens(tokIndex int) map[string]interface{} {
 			apiAccessTokens = homeConfig.Get("apiAccessTokens").([]interface{})
 		}
 	}
+}
 
+func GetApiAccessTokenMap(tokIndex int) map[string]interface{} {
 	if len(apiAccessTokens) > 0 {
 		return apiAccessTokens[tokIndex].(map[string]interface{})
 	} else {
@@ -228,12 +239,35 @@ func GetApiAccessTokens(tokIndex int) map[string]interface{} {
 	}
 }
 
+func GetValidApiAccessToken(tokIndex int) string {
+	username, tokenProblem := CheckToken(tokIndex)
+	if tokenProblem || username == "" {
+		GetNewAccessToken()
+	}
+
+	return GetApiAccessToken(tokIndex)
+}
+
 func GetApiAccessToken(tokIndex int) string {
-	accessToken := GetApiAccessTokens(tokIndex)
-	if accessToken == nil {
+	accessTokenMap := GetApiAccessTokenMap(tokIndex)
+	if accessTokenMap == nil {
 		return ""
 	} else {
-		return accessToken["access_token"].(string)
+		return accessTokenMap["access_token"].(string)
+	}
+}
+
+func ApiAccessTokenIsTooOld(tokIndex int) bool {
+	//compare (cr-timestamp) to (expires_in * 1000) to see if more than CurrentTimestampMillis
+	//and if it is then the access token is too old and we need to get a new one
+	accessTokenMap := GetApiAccessTokenMap(tokIndex)
+	if accessTokenMap == nil {
+		return true
+	} else {
+		// make sure to give 3000 milliseconds to hedge a slow server side token verification
+		crTimestamp, _ := strconv.ParseInt(accessTokenMap["cr-timestamp"].(string), 10, 64)
+		return crTimestamp-3000+(int64(accessTokenMap["expires_in"].(float64))*1000) <
+			CurrentTimestampMillis()
 	}
 }
 

@@ -131,7 +131,7 @@ func verifyPin(pin Pin, pinContent string, sendContent bool) Pin {
 		if pin.IsGet() {
 			resp, err := resty.R().
 				SetHeader("Accept", "application/json").
-				SetAuthToken(GetApiAccessToken(tokIndex)).
+				SetAuthToken(GetValidApiAccessToken(tokIndex)).
 				Get(verifyURL)
 
 			// The response should contain at most the last three
@@ -146,7 +146,7 @@ func verifyPin(pin Pin, pinContent string, sendContent bool) Pin {
 			}
 			resp, err := resty.R().
 				SetHeader("Accept", "application/json").
-				SetAuthToken(GetApiAccessToken(tokIndex)).
+				SetAuthToken(GetValidApiAccessToken(tokIndex)).
 				SetHeader("Content-Type", "application/octet-stream").
 				SetBody(contentToSend).
 				Put(verifyURL)
@@ -190,7 +190,12 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 				}
 			} else {
 				CrcliLogger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
-				pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
+				pin.ApiMsg = fmt.Sprintf("Fatal %d: could not parse response JSON: %s :: %s", resp.StatusCode(), respBody, err)
+				//if resp.StatusCode() == 401 {
+				//	// failure to unmarshal the response is usually due to an expired access token
+				//	GetNewAccessToken()
+				//	myerr = errors.New("401.incorrect.json")
+				//}
 			}
 		} else {
 			respBody := resp.Body()
@@ -204,7 +209,12 @@ func handleVerifyPinResponse(pin Pin, err error, resp *resty.Response) (Pin, err
 				myerr = errors.New(string(resp.StatusCode()))
 			} else {
 				CrcliLogger.Debugf("Error INCORRECT json in response %s: %s", respBody, err)
-				pin.ApiMsg = fmt.Sprintf("Fatal: could not parse response JSON: %s :: %s", respBody, err)
+				pin.ApiMsg = fmt.Sprintf("Fatal %d: could not parse response JSON: %s :: %s", resp.StatusCode(), respBody, err)
+				//if resp.StatusCode() == 401 {
+				//	// failure to unmarshal the response is usually due to an expired access token
+				//	GetNewAccessToken()
+				//	myerr = errors.New("401.incorrect.json")
+				//}
 			}
 			//respBody := string(resp.Body())
 			//pin.ApiMsg = fmt.Sprintf("Fatal %d: verification failed with error: %s", resp.StatusCode(), respBody)
@@ -243,7 +253,7 @@ func GetMatchingVersions(requirement string, versions []string) []string {
 
 			resp, err := resty.R().
 				SetHeader("Accept", "application/json").
-				SetAuthToken(GetApiAccessToken(tokIndex)).
+				SetAuthToken(GetValidApiAccessToken(tokIndex)).
 				Get(matchingVersionsURL)
 
 			if err == nil {
