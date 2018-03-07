@@ -53,8 +53,9 @@ func Init(args cli.Args) {
 			}
 
 			registerUserUrl := ConfString("registerUser", "https://coderockit.io/ui/v1/auth/realms/coderockit/account")
+			CmdsLogger.Debugf("Registering user at URL: '%s'\n", registerUserUrl)
 			err := bow.Open(registerUserUrl)
-			if err == nil {
+			if err == nil && bow.StatusCode() == 200 {
 
 				err := bow.Click("#kc-registration a")
 				if err == nil {
@@ -96,7 +97,11 @@ func Init(args cli.Args) {
 					fmt.Printf("Could not register new user due to error: %s\n", err)
 				}
 			} else {
-				fmt.Printf("Could not register new user due to error: %s\n", err)
+				if err != nil {
+					fmt.Printf("Could not register new user due to error: %s\n", err)
+				} else {
+					fmt.Printf("Could not register new user due to error: %s\n", bow.State().Response.Status)
+				}
 			}
 		} else {
 			// get a new token
@@ -479,4 +484,12 @@ func ApplyPermissions(args cli.Args) {
 
 func SendMessage(args cli.Args) {
 	CmdsLogger.Debugf("send messages: %s", "need to implement")
+}
+
+func Show(args cli.Args) {
+	CmdsLogger.Debugf("show pins and pin versions: %s", "need to implement")
+}
+
+func Find(args cli.Args) {
+	CmdsLogger.Debugf("find pins and pin versions: %s", "need to implement")
 }

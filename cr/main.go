@@ -102,6 +102,28 @@ func main() {
 			},
 		},
 		{
+			Name:    "show",
+			Aliases: []string{"w"},
+			Usage:   "Show a list of pins and/or pin versions associated to a given key. The key category is one of: user or group or pin.",
+			Action: func(c *cli.Context) error {
+				if crcli.LoadConfiguration(c, configDir) {
+					crcli.Show(c.Args())
+				}
+				return nil
+			},
+		},
+		{
+			Name:    "find",
+			Aliases: []string{"f"},
+			Usage:   "Find a list of pins and/or pin versions whose names and/or content contains the given search string.",
+			Action: func(c *cli.Context) error {
+				if crcli.LoadConfiguration(c, configDir) {
+					crcli.Find(c.Args())
+				}
+				return nil
+			},
+		},
+		{
 			Name:    "config",
 			Aliases: []string{"c"},
 			Usage:   "Show the configuration in the coderockit.json file",
